@@ -1,0 +1,16 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Turn One Link", "Turn One Link.csproj", "{4D589AFF-824E-43E1-B7C6-A36AF9048285}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4D589AFF-824E-43E1-B7C6-A36AF9048285}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4D589AFF-824E-43E1-B7C6-A36AF9048285}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4D589AFF-824E-43E1-B7C6-A36AF9048285}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4D589AFF-824E-43E1-B7C6-A36AF9048285}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
