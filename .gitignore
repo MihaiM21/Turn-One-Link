@@ -1,5 +1,40 @@
-bin/
-obj/
-/packages/
+# Build output
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+
+# IDE folders
+.vs/
+.idea/
+
+# User-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Rider/ReSharper
 riderModule.iml
-/_ReSharper.Caches/
+_ReSharper*/
+*.DotSettings.user
+
+# NuGet/packages
+packages/
+!**/packages/build/
+*.nupkg
+*.snupkg
+
+# WPF generated files
+*.g.cs
+*.g.i.cs
+*.baml
+
+# Misc
+*.log
+Thumbs.db
+Desktop.ini

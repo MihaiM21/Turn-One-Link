@@ -1,12 +1,102 @@
-﻿<Window x:Class="Turn_One_Link.MainWindow"
+<Window x:Class="Turn_One_Link.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Turn_One_Link"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        Title="Turn One Link"
+        Icon="/Content/logo32.png"
+        Width="360" Height="480"
+        MinWidth="360" MinHeight="340"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen">
 
-    </Grid>
+    <!-- Drop shadow wrapper -->
+    <Border Margin="20" CornerRadius="16"
+            Background="{StaticResource BackgroundBrush}">
+        <Border.Effect>
+            <DropShadowEffect Color="#000000" BlurRadius="40" ShadowDepth="0" Opacity="0.7"/>
+        </Border.Effect>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="48"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Top accent line -->
+            <Border Grid.Row="0" Grid.RowSpan="2" CornerRadius="16"
+                    BorderThickness="1" BorderBrush="#1AFFFFFF" IsHitTestVisible="False"/>
+
+            <!-- Title bar -->
+            <Grid Grid.Row="0" Background="Transparent"
+                  MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Logo + Title -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal"
+                            VerticalAlignment="Center" Margin="16,0,0,0">
+                    <!-- Red accent mark -->
+                    <Border Width="3" Height="16" CornerRadius="2"
+                            Margin="0,0,10,0">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                <GradientStop Color="#FF4D6A" Offset="0"/>
+                                <GradientStop Color="#E8173A" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Border.Background>
+                        <Border.Effect>
+                            <DropShadowEffect Color="#E8173A" BlurRadius="8" ShadowDepth="0" Opacity="0.9"/>
+                        </Border.Effect>
+                    </Border>
+                    <Image Source="/Content/logo mic.png" Width="20"/>
+                    
+                    <TextBlock Text="TURN ONE" FontFamily="Segoe UI"
+                               FontSize="13" FontWeight="Bold"
+                               Foreground="White" VerticalAlignment="Center" Margin="10 0 0 0"/>
+                    <TextBlock Text=" LINK" FontFamily="Segoe UI"
+                               FontSize="13" FontWeight="Light"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Window controls -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal"
+                            VerticalAlignment="Center" Margin="0,0,8,0">
+                    <Button Style="{StaticResource ChromeButton}"
+                            Click="MinimizeButton_Click"
+                            ToolTip="Minimize">
+                        <Grid Width="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Path Data="M 6,12 L 18,12" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                        </Grid>
+                    </Button>
+                    <Button Style="{StaticResource ChromeButton}"
+                            Click="CloseButton_Click"
+                            ToolTip="Close">
+                        <Grid Width="24" Height="22" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Path Data="M 7,7 L 17,17" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                            <Path Data="M 17,7 L 7,17" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                        </Grid>
+                    </Button>
+                </StackPanel>
+
+                <!-- Separator line -->
+                <Border Grid.ColumnSpan="2" VerticalAlignment="Bottom"
+                        Height="1" Background="{StaticResource BorderBrush}"/>
+            </Grid>
+
+            <!-- Content area — swapped by code-behind -->
+            <ContentControl x:Name="MainContent" Grid.Row="1"/>
+        </Grid>
+    </Border>
 </Window>

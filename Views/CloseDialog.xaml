@@ -1,0 +1,77 @@
+<Window x:Class="Turn_One_Link.Views.CloseDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Turn One Link"
+        Width="360" Height="210"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+
+    <Border Margin="2 16 2 16" CornerRadius="14"
+            Background="{StaticResource BackgroundBrush}">
+        <Border.Effect>
+            <DropShadowEffect Color="#000000" BlurRadius="36" ShadowDepth="0" Opacity="0.85"/>
+        </Border.Effect>
+
+        <Grid>
+            <!-- Outer glow border -->
+            <Border CornerRadius="14" BorderThickness="1" BorderBrush="#1AFFFFFF" IsHitTestVisible="False"/>
+
+            <StackPanel Margin="24,22,24,20">
+
+                <!-- Icon + title row -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                    <Border Width="3" Height="14" CornerRadius="2" Margin="0,1,10,0">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                <GradientStop Color="#FF4D6A" Offset="0"/>
+                                <GradientStop Color="#E8173A" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Border.Background>
+                    </Border>
+                    <TextBlock Text="TURN ONE LINK"
+                               FontFamily="Segoe UI" FontSize="12" FontWeight="Bold"
+                               Foreground="White" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Message -->
+                <TextBlock Text="Keep the app running in the system tray, or close it completely?"
+                           FontFamily="Segoe UI" FontSize="13"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           TextWrapping="Wrap"
+                           LineHeight="20"
+                           Margin="0,0,0,24"/>
+
+                <!-- Buttons -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Button Grid.Column="0" Content="Cancel"
+                            Style="{StaticResource GhostButton}"
+                            Width="72" Height="36"
+                            Click="Cancel_Click"/>
+
+                    <Button Grid.Column="2" Content="Close App"
+                            Style="{StaticResource GhostButton}"
+                            Width="88" Height="36"
+                            Click="CloseApp_Click"/>
+
+                    <Button Grid.Column="4" Content="Minimize to Tray"
+                            Style="{StaticResource PrimaryButton}"
+                            Width="130" Height="36"
+                            Click="MinimizeToTray_Click"/>
+                </Grid>
+
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

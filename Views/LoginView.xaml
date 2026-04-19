@@ -1,0 +1,92 @@
+<UserControl x:Class="Turn_One_Link.Views.LoginView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" VerticalAlignment="Center" Margin="32,0">
+
+            <!-- Brand mark -->
+            <StackPanel HorizontalAlignment="Center" Margin="0,0,0,24">
+                <!-- Glowing circle emblem -->
+                <!-- <Grid HorizontalAlignment="Center" Margin="0,0,0,14"> -->
+                <!--     ~1~ Outer glow ring @1@ -->
+                <!--     <Ellipse Width="60" Height="60" Opacity="0.15"> -->
+                <!--         <Ellipse.Fill> -->
+                <!--             <RadialGradientBrush> -->
+                <!--                 <GradientStop Color="#E8173A" Offset="0"/> -->
+                <!--                 <GradientStop Color="Transparent" Offset="1"/> -->
+                <!--             </RadialGradientBrush> -->
+                <!--         </Ellipse.Fill> -->
+                <!--         <Ellipse.Effect> -->
+                <!--             <BlurEffect Radius="16"/> -->
+                <!--         </Ellipse.Effect> -->
+                <!--     </Ellipse> -->
+                <!--     ~1~ Inner ring @1@ -->
+                <!--     <Ellipse Width="44" Height="44" -->
+                <!--              Stroke="#E8173A" StrokeThickness="1.5" -->
+                <!--              HorizontalAlignment="Center" VerticalAlignment="Center"> -->
+                <!--         <Ellipse.Effect> -->
+                <!--             <DropShadowEffect Color="#E8173A" BlurRadius="10" ShadowDepth="0" Opacity="0.6"/> -->
+                <!--         </Ellipse.Effect> -->
+                <!--     </Ellipse> -->
+                <!--     ~1~ Logo @1@ -->
+                <!--     <Image Source="/Content/logo mic.png" Width="22" Height="22" -->
+                <!--            HorizontalAlignment="Center" VerticalAlignment="Center"/> -->
+                <!-- </Grid> -->
+
+                <TextBlock Text="TURN ONE LINK" HorizontalAlignment="Center"
+                           FontFamily="Segoe UI" FontSize="16" FontWeight="Bold"
+                           Foreground="White"/>
+                <TextBlock Text="Telemetry Data Acquisition" HorizontalAlignment="Center"
+                           FontFamily="Segoe UI" FontSize="11"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="0,4,0,0"/>
+            </StackPanel>
+
+            <!-- Form -->
+            <TextBlock Text="Email" FontFamily="Segoe UI" FontSize="11"
+                       FontWeight="Medium" Foreground="{StaticResource TextSecondaryBrush}"
+                       Margin="0,0,0,4"/>
+            <TextBox x:Name="EmailBox" Style="{StaticResource DarkTextBox}"
+                     Margin="0,0,0,12"/>
+
+            <TextBlock Text="Password" FontFamily="Segoe UI" FontSize="11"
+                       FontWeight="Medium" Foreground="{StaticResource TextSecondaryBrush}"
+                       Margin="0,0,0,4"/>
+            <PasswordBox x:Name="PasswordBox" Style="{StaticResource DarkPasswordBox}"
+                         Margin="0,0,0,6"/>
+
+            <TextBlock x:Name="ErrorText" Text=""
+                       FontFamily="Segoe UI" FontSize="11"
+                       Foreground="{StaticResource AccentBrush}"
+                       Margin="0,0,0,16" Visibility="Collapsed"/>
+
+            <Button x:Name="LoginButton" Content="Sign In"
+                    Style="{StaticResource PrimaryButton}"
+                    Margin="0,6,0,0"
+                    Click="LoginButton_Click"/>
+
+            <TextBlock HorizontalAlignment="Center" Margin="0,14,0,0">
+                <Run Text="Don't have an account? " Foreground="{StaticResource TextSecondaryBrush}"
+                     FontFamily="Segoe UI" FontSize="12"/>
+                <Hyperlink x:Name="SignUpLink" NavigateUri="https://turnonehub.com"
+                           Foreground="{StaticResource AccentBrush}"
+                           TextDecorations="None">
+                    <Run Text="Sign up" FontFamily="Segoe UI" FontSize="12"/>
+                </Hyperlink>
+            </TextBlock>
+        </StackPanel>
+
+        <!-- Footer -->
+        <TextBlock Grid.Row="1" HorizontalAlignment="Center"
+                   Margin="0,0,0,12"
+                   Text="© 2026 Turn One" FontFamily="Segoe UI" FontSize="10"
+                   Foreground="#44FFFFFF"/>
+    </Grid>
+</UserControl>
