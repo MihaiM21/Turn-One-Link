@@ -28,7 +28,7 @@ The development of Turn One Link is divided into five strategic phases:
 * [x] **T1 Protocol:** Unified JSON schema for all supported games (see [T1 Protocol](telemetry/t1_protocol.md)).
 * [x] **Connection Heartbeat:** Auto-recovery system for lost mobile signals (5s ping / 10s pong timeout).
 
-### Phase 2: First Contact (Assetto Corsa Support) 🏁
+### Phase 2: First Contact (Assetto Corsa Support) 
 * [ ] **Shared Memory Integration:** Direct RAM reading for Assetto Corsa & ACC.
 * [ ] **Auto-Hook:** Intelligent game process detection (Launch & Stream).
 * [ ] **Basic Telemetry:** Speed, Gear, RPM, and Pedal Inputs.
@@ -60,7 +60,7 @@ The development of Turn One Link is divided into five strategic phases:
 
 ---
 
-## 💎 Monetization Strategy (Subscription Plans)
+## Monetization Strategy (Subscription Plans)
 
 *   **Rookie Plan (Free):** Basic real-time telemetry streaming (Speed, RPM, Gears, Basic Inputs) with standard mobile dashboards over local network.
 *   **Pro Plan ($4.99/mo):** Advanced physics (tire/brake temps, MGU-K), dynamic adaptive dashboards, fuel management engine, and limited cloud logging (last 10 sessions).
