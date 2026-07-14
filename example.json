@@ -1,0 +1,751 @@
+{
+    "type": "graphics",
+    "timestamp": 1776764355843,
+    "data": {
+        "packetId": 1144,
+        "status": "AC_LIVE",
+        "session": "AC_PRACTICE",
+        "currentTime": "0:15:543",
+        "lastTime": "35791:23:647",
+        "bestTime": "35791:23:647",
+        "split": "0:15:543",
+        "completedLaps": 0,
+        "position": 1,
+        "iCurrentTime": 15543,
+        "iLastTime": 2147483647,
+        "iBestTime": 2147483647,
+        "sessionTimeLeft": -1,
+        "distanceTraveled": 0.848871,
+        "isInPit": 0,
+        "currentSectorIndex": 0,
+        "lastSectorTime": 0,
+        "numberOfLaps": 0,
+        "tyreCompound": "dry_compound",
+        "replayTimeMultiplier": 0,
+        "normalizedCarPosition": 0.040497586,
+        "activeCars": 1,
+        "carCoordinates": [
+            {
+                "x": -340.43088,
+                "y": -9.8789425,
+                "z": 333.12454
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        ],
+        "carIDs": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "playerCarID": 0,
+        "penaltyTime": 0,
+        "flag": "AC_NO_FLAG",
+        "penalty": "None",
+        "idealLineOn": 1,
+        "isInPitLane": 1,
+        "surfaceGrip": 0,
+        "mandatoryPitDone": 0,
+        "windSpeed": 0,
+        "windDirection": 0,
+        "isSetupMenuVisible": 0,
+        "mainDisplayIndex": 1,
+        "secondaryDisplayIndex": 0,
+        "tc": 6,
+        "tcCut": 6,
+        "engineMap": 7,
+        "abs": 6,
+        "fuelXLap": 3.66,
+        "rainLights": 0,
+        "flashingLights": 0,
+        "lightsStage": 0,
+        "exhaustTemperature": 121.66029,
+        "wiperLV": 0,
+        "driverStintTotalTimeLeft": -1000,
+        "driverStintTimeLeft": -1000,
+        "rainTyres": 0,
+        "sessionIndex": 0,
+        "usedFuel": 0,
+        "deltaLapTime": "-:--:---",
+        "iDeltaLapTime": 0,
+        "estimatedLapTime": "35791:23:647",
+        "iEstimatedLapTime": 2147483647,
+        "isDeltaPositive": 0,
+        "iSplit": 15543,
+        "isValidLap": 1,
+        "fuelEstimatedLaps": 16.93989,
+        "trackStatus": "FAST",
+        "missingMandatoryPits": 255,
+        "clock": 32400.14,
+        "directionLightsLeft": 0,
+        "directionLightsRight": 0,
+        "globalYellow": 0,
+        "globalYellow1": 0,
+        "globalYellow2": 0,
+        "globalYellow3": 0,
+        "globalWhite": 0,
+        "globalGreen": 1,
+        "globalChequered": 0,
+        "globalRed": 0,
+        "mfdTyreSet": 2,
+        "mfdFuelToAdd": 0,
+        "mfdTyrePressure": [
+            27.650002,
+            27.650002,
+            27.650002,
+            27.650002
+        ],
+        "trackGripStatus": "Fast",
+        "rainIntensity": "NoRain",
+        "rainIntensityIn10min": "NoRain",
+        "rainIntensityIn30min": "NoRain",
+        "currentTyreSet": 2,
+        "strategyTyreSet": 0,
+        "gapAhead": 0,
+        "gapBehind": 0
+    }
+}
+{
+    "type": "physics",
+    "timestamp": 1776764355947,
+    "data": {
+        "packetId": 6158,
+        "gas": 0,
+        "brake": 0,
+        "fuel": 62,
+        "gear": 1,
+        "rpms": 0,
+        "steerAngle": 0,
+        "speedKmh": 0.0016159083,
+        "velocity": [
+            0.00036872347,
+            -7.898927E-06,
+            0.00028663027
+        ],
+        "accG": [
+            0,
+            0,
+            0
+        ],
+        "wheelSlip": [
+            0.00935637,
+            0.009168548,
+            0.008905398,
+            0.008883198
+        ],
+        "wheelLoad": [
+            0,
+            0,
+            0,
+            0
+        ],
+        "wheelsPressure": [
+            26.499058,
+            26.499367,
+            25.300755,
+            25.300552
+        ],
+        "wheelAngularSpeed": [
+            -0.0014170869,
+            -0.001372923,
+            0,
+            0
+        ],
+        "tyreWear": [
+            0,
+            0,
+            0,
+            0
+        ],
+        "tyreDirtyLevel": [
+            0,
+            0,
+            0,
+            0
+        ],
+        "tyreCoreTemperature": [
+            69.96426,
+            69.96749,
+            69.981926,
+            69.97983
+        ],
+        "camberRad": [
+            0,
+            0,
+            0,
+            0
+        ],
+        "suspensionTravel": [
+            0.016101936,
+            0.016192526,
+            0.014786827,
+            0.014885346
+        ],
+        "drs": 0,
+        "tc": 0,
+        "heading": 2.4595492,
+        "pitch": 0.01712062,
+        "roll": -0.012304833,
+        "cgHeight": 0,
+        "carDamage": [
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "numberOfTyresOut": 0,
+        "pitLimiterOn": 1,
+        "abs": 0,
+        "kersCharge": 0,
+        "kersInput": 0,
+        "autoShifterOn": 1,
+        "rideHeight": [
+            0,
+            0
+        ],
+        "turboBoost": 0,
+        "ballast": 0,
+        "airDensity": 0,
+        "airTemp": 27.038877,
+        "roadTemp": 27.637344,
+        "localAngularVelocity": [
+            -3.843579E-05,
+            2.6712429E-05,
+            2.4117006E-05
+        ],
+        "finalFF": -0.003630131,
+        "performanceMeter": 0,
+        "engineBrake": 0,
+        "ersRecoveryLevel": 0,
+        "ersPowerLevel": 0,
+        "ersHeatCharging": 0,
+        "ersisCharging": 0,
+        "kersCurrentKJ": 0,
+        "drsAvailable": 0,
+        "drsEnabled": 0,
+        "brakeTemp": [
+            27.006634,
+            27.006634,
+            27.142696,
+            27.15836
+        ],
+        "clutch": 0,
+        "tyreTempI": [
+            0,
+            0,
+            0,
+            0
+        ],
+        "tyreTempM": [
+            0,
+            0,
+            0,
+            0
+        ],
+        "tyreTempO": [
+            0,
+            0,
+            0,
+            0
+        ],
+        "isAIControlled": 0,
+        "tyreContactPoint": [
+            {
+                "x": -342.033,
+                "y": -10.226697,
+                "z": 332.56998
+            },
+            {
+                "x": -340.6523,
+                "y": -10.248445,
+                "z": 331.4483
+            },
+            {
+                "x": -340.4573,
+                "y": -10.27027,
+                "z": 334.46317
+            },
+            {
+                "x": -339.1229,
+                "y": -10.291281,
+                "z": 333.37915
+            }
+        ],
+        "tyreContactNormal": [
+            {
+                "x": 0.020674402,
+                "y": 0.9997693,
+                "z": 0.00582146
+            },
+            {
+                "x": 0.020541526,
+                "y": 0.99977154,
+                "z": 0.005908791
+            },
+            {
+                "x": 0.020541526,
+                "y": 0.99977154,
+                "z": 0.005908791
+            },
+            {
+                "x": 0.020541526,
+                "y": 0.99977154,
+                "z": 0.005908791
+            }
+        ],
+        "tyreContactHeading": [
+            {
+                "x": 0.6306447,
+                "y": -0.017558966,
+                "z": 0.775873
+            },
+            {
+                "x": 0.62991846,
+                "y": -0.01753145,
+                "z": 0.7764634
+            },
+            {
+                "x": 0.62961215,
+                "y": -0.017526627,
+                "z": 0.77671194
+            },
+            {
+                "x": 0.6316197,
+                "y": -0.017558226,
+                "z": 0.7750795
+            }
+        ],
+        "brakeBias": 0.78999996,
+        "localVelocity": [
+            -0.000105542065,
+            1.189495E-06,
+            -0.00045501182
+        ],
+        "p2PActivation": 0,
+        "p2PStatus": 0,
+        "currentMaxRpm": 1.2962E-41,
+        "mz": [
+            0,
+            0,
+            0,
+            0
+        ],
+        "fx": [
+            0,
+            0,
+            0,
+            0
+        ],
+        "fy": [
+            0,
+            0,
+            0,
+            0
+        ],
+        "slipRatio": [
+            4.6386217E-06,
+            9.277508E-06,
+            0.00010157117,
+            0.00010181518
+        ],
+        "slipAngle": [
+            0.00071411126,
+            0.0006997846,
+            0.0007120649,
+            0.00071028684
+        ],
+        "tcInAction": 0,
+        "absInAction": 0,
+        "suspensionDamage": [
+            0,
+            0,
+            0,
+            0
+        ],
+        "tyreTemp": [
+            69.96426,
+            69.96749,
+            69.981926,
+            69.97983
+        ],
+        "waterTemp": 55.35794,
+        "brakePressure": [
+            0,
+            0,
+            0,
+            0
+        ],
+        "frontBrakeCompound": 1,
+        "rearBrakeCompound": 1,
+        "padLife": [
+            29.000002,
+            29.000002,
+            29.000002,
+            29.000002
+        ],
+        "discLife": [
+            32,
+            32,
+            32,
+            32
+        ],
+        "ignitionOn": 0,
+        "starterEngineOn": 0,
+        "isEngineRunning": 0,
+        "kerbVibration": 0,
+        "slipVibrations": 9.29688E-06,
+        "gVibrations": 0,
+        "absVibrations": 0
+    }
+}

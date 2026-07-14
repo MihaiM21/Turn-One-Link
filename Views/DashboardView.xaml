@@ -8,7 +8,10 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="10"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="10"/>
+            <RowDefinition Height="8"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="8"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
@@ -55,16 +58,16 @@
                            Text="SIM GAME" FontFamily="Segoe UI" FontSize="10"
                            FontWeight="Medium" Foreground="{StaticResource TextSecondaryBrush}"/>
 
-                <StackPanel Grid.Row="0" Grid.Column="1" 
-                            Orientation="Horizontal" 
+                <StackPanel Grid.Row="0" Grid.Column="1"
+                            Orientation="Horizontal"
                             VerticalAlignment="Center">
-        
-                    <TextBlock x:Name="SimStatusLabel" 
+                    <TextBlock x:Name="SimStatusLabel"
                                Text="Disconnected"
                                FontFamily="Segoe UI" FontSize="11"
                                Foreground="{StaticResource TextSecondaryBrush}"
                                VerticalAlignment="Center"
-                               Margin="0,0,8,0"/> <Grid VerticalAlignment="Center">
+                               Margin="0,0,8,0"/>
+                    <Grid VerticalAlignment="Center">
                         <Ellipse x:Name="SimGlowDot" Width="24" Height="24" Opacity="0.4" Fill="Red">
                             <Ellipse.Effect>
                                 <BlurEffect Radius="12"/>
@@ -104,17 +107,15 @@
                            FontWeight="Medium"
                            Foreground="{StaticResource TextSecondaryBrush}"/>
 
-                <StackPanel Grid.Row="0" Grid.Column="1" 
-                            Orientation="Horizontal" 
+                <StackPanel Grid.Row="0" Grid.Column="1"
+                            Orientation="Horizontal"
                             VerticalAlignment="Center">
-                    
-                    <TextBlock x:Name="ServerStatusLabel" 
+                    <TextBlock x:Name="ServerStatusLabel"
                                Text="Online"
                                FontFamily="Segoe UI" FontSize="11"
                                Foreground="{StaticResource TextSecondaryBrush}"
                                VerticalAlignment="Center"
                                Margin="0,0,8,0"/>
-
                     <Grid VerticalAlignment="Center">
                         <Ellipse x:Name="ServerGlowDot" Width="24" Height="24" Opacity="0.4" Fill="#FF00FF7F">
                             <Ellipse.Effect>
@@ -133,8 +134,159 @@
             </Grid>
         </Border>
 
+        <!-- Local Devices card -->
+        <Border Grid.Row="6"
+                Background="{StaticResource SurfaceBrush}"
+                CornerRadius="12"
+                BorderThickness="1"
+                BorderBrush="{StaticResource BorderBrush}">
+            <Grid Margin="16,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="4"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="6"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0"
+                           Text="LOCAL DEVICES" FontFamily="Segoe UI" FontSize="10"
+                           FontWeight="Medium" Foreground="{StaticResource TextSecondaryBrush}"/>
+
+                <!-- Device count + status dot -->
+                <StackPanel Grid.Row="0" Grid.Column="1"
+                            Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="LocalDeviceCountLabel"
+                               Text="0 connected"
+                               FontFamily="Segoe UI" FontSize="11"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0"/>
+                    <Grid VerticalAlignment="Center">
+                        <Ellipse x:Name="LocalGlowDot" Width="24" Height="24" Opacity="0.4" Fill="#EF4444">
+                            <Ellipse.Effect>
+                                <BlurEffect Radius="12"/>
+                            </Ellipse.Effect>
+                        </Ellipse>
+                        <Ellipse x:Name="LocalStatusDot" Width="8" Height="8" Fill="#EF4444"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Grid>
+                </StackPanel>
+
+                <!-- WebSocket address row + inline port editor -->
+                <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Normal view: address + edit button -->
+                    <StackPanel x:Name="PortDisplayPanel" Grid.Row="0" Orientation="Horizontal">
+                        <TextBlock Text="📱  " FontSize="13" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="LocalAddressText"
+                                   Text="ws://—:8080"
+                                   FontFamily="Consolas, Courier New" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="White" VerticalAlignment="Center"/>
+                        <Button x:Name="EditPortButton"
+                                Content="✏"
+                                Style="{StaticResource GhostButton}"
+                                FontSize="11"
+                                Height="22"
+                                Margin="8,0,0,0"
+                                ToolTip="Change port"
+                                Click="EditPortButton_Click"/>
+                    </StackPanel>
+
+                    <!-- Edit view: port textbox + apply + cancel (hidden by default) -->
+                    <StackPanel x:Name="PortEditPanel" Grid.Row="1"
+                                Orientation="Horizontal"
+                                Margin="0,6,0,0"
+                                Visibility="Collapsed">
+                        <TextBlock Text="Port: " FontFamily="Segoe UI" FontSize="11"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   VerticalAlignment="Center"/>
+                        <TextBox x:Name="PortInputBox"
+                                 Style="{StaticResource DarkTextBox}"
+                                 Width="72" Height="28"
+                                 FontFamily="Consolas, Courier New"
+                                 FontSize="12"
+                                 MaxLength="5"
+                                 VerticalContentAlignment="Center"
+                                 Padding="8,0"
+                                 Text="8080"
+                                 KeyDown="PortInputBox_KeyDown"
+                                 Margin="6,0,0,0"/>
+                        <Button Content="Apply"
+                                Style="{StaticResource PrimaryButton}"
+                                Height="28" Padding="10,0"
+                                FontSize="11"
+                                Margin="6,0,0,0"
+                                Click="ApplyPortButton_Click"/>
+                        <Button Content="✕"
+                                Style="{StaticResource GhostButton}"
+                                Height="28" FontSize="11"
+                                Margin="4,0,0,0"
+                                Click="CancelPortButton_Click"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- PIN display -->
+                <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal">
+                    <TextBlock Text="🔑  PIN: " FontFamily="Segoe UI" FontSize="11"
+                               Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="LocalPinText"
+                               Text="——"
+                               FontFamily="Consolas, Courier New" FontSize="13" FontWeight="Bold"
+                               Foreground="#FFC14B" VerticalAlignment="Center"
+                               Margin="4,0,0,0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Port-conflict warning banner (hidden by default) -->
+        <Border x:Name="PortConflictBanner"
+                Grid.Row="7"
+                Background="#2D1A00"
+                CornerRadius="8"
+                BorderThickness="1"
+                BorderBrush="#FF8C00"
+                Margin="0,6,0,0"
+                Visibility="Collapsed">
+            <Grid Margin="12,8">
+                <StackPanel>
+                    <TextBlock Text="⚠  Port conflict detected"
+                               FontFamily="Segoe UI" FontSize="11" FontWeight="SemiBold"
+                               Foreground="#FFC14B"/>
+                    <TextBlock x:Name="PortConflictText"
+                               Text="Port 8080 is already in use. Set LOCAL_WS_PORT in .env to another value."
+                               FontFamily="Segoe UI" FontSize="10"
+                               Foreground="#FF8C00"
+                               TextWrapping="Wrap"
+                               Margin="0,2,0,0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Console log -->
+        <Border Grid.Row="8"
+                Background="#0F172A"
+                CornerRadius="8"
+                BorderThickness="1"
+                BorderBrush="{StaticResource BorderBrush}"
+                Margin="0,4,0,0">
+            <ScrollViewer x:Name="ConsoleScroll" VerticalScrollBarVisibility="Auto" Margin="8">
+                <TextBlock x:Name="ConsoleOutput"
+                           FontFamily="Consolas, Courier New" FontSize="10"
+                           Foreground="#4ADE80" TextWrapping="Wrap"/>
+            </ScrollViewer>
+        </Border>
+
         <!-- Version -->
-        <TextBlock Grid.Row="6" HorizontalAlignment="Center"
+        <TextBlock Grid.Row="9" HorizontalAlignment="Center"
                    Margin="0,8,0,0"
                    Text="v0.0.1" FontFamily="Segoe UI" FontSize="10"
                    Foreground="#33FFFFFF"/>

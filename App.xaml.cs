@@ -1,4 +1,7 @@
+using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
+using DotNetEnv;
 using Application = System.Windows.Application;
 
 namespace Turn_One_Link;
@@ -6,9 +9,42 @@ namespace Turn_One_Link;
 public partial class App : Application
 {
     private System.Windows.Forms.NotifyIcon _trayIcon = null!;
+    private bool _highResTimerActive;
+
+    [DllImport("winmm.dll", EntryPoint = "timeBeginPeriod")] private static extern uint TimeBeginPeriod(uint uMilliseconds);
+    [DllImport("winmm.dll", EntryPoint = "timeEndPeriod")] private static extern uint TimeEndPeriod(uint uMilliseconds);
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        try
+        {
+            if (TimeBeginPeriod(1) == 0) _highResTimerActive = true;
+        }
+        catch { }
+
+        // Load environment variables from .env file
+        try
+        {
+            var envPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".env");
+            if (File.Exists(envPath))
+            {
+                Env.Load(envPath);
+                System.Diagnostics.Debug.WriteLine("Environment variables loaded from .env file");
+            }
+
+            // Also try to load .env.local for local overrides
+            var envLocalPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".env.local");
+            if (File.Exists(envLocalPath))
+            {
+                Env.Load(envLocalPath);
+                System.Diagnostics.Debug.WriteLine("Environment variables loaded from .env.local file");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to load .env file: {ex.Message}");
+        }
+
         base.OnStartup(e);
 
         _trayIcon = new System.Windows.Forms.NotifyIcon
@@ -56,6 +92,11 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _trayIcon?.Dispose();
+        if (_highResTimerActive)
+        {
+            try { TimeEndPeriod(1); } catch { }
+            _highResTimerActive = false;
+        }
         base.OnExit(e);
     }
 

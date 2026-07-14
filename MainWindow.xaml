@@ -43,8 +43,8 @@
                 <!-- Logo + Title -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal"
                             VerticalAlignment="Center" Margin="16,0,0,0">
-                    <!-- Red accent mark -->
-                    <Border Width="3" Height="16" CornerRadius="2"
+                    <!-- Status accent mark -->
+                    <Border x:Name="AccentMark" Width="3" Height="16" CornerRadius="2"
                             Margin="0,0,10,0">
                         <Border.Background>
                             <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">

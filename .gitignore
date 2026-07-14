@@ -36,5 +36,10 @@ packages/
 
 # Misc
 *.log
+dev_logs/
 Thumbs.db
 Desktop.ini
+
+# Enviroment files
+.env
+.env.local
