@@ -43,3 +43,12 @@ Desktop.ini
 # Enviroment files
 .env
 .env.local
+
+# Publish output
+publish
+publish_framework
+installer.iss
+build_installer.ps1
+
+# AI
+CLAUDE.md
