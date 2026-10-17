@@ -20,6 +20,8 @@ This is the **primary environment configuration file** containing default values
 - `TELEMETRY_ENABLED` - Telemetry streaming (default: `true`)
 - `TELEMETRY_BUFFER_SIZE` - Buffer size for telemetry (default: `100`)
 - `SECURE_TOKEN_STORE_ENABLED` - Secure token storage (default: `true`)
+- `PROTOCOL_V1` - Cloud telemetry protocol version gate (default: `false`, meaning v2). `false`/unset streams the sim-neutral v2 `tick`/`lap_complete`/`session_start` frames (see `docs/telemetry/backend_contract_v2.md`) from every source (ACC, AC, iRacing). `true` falls back to the legacy v1 ACC-shaped `physics`/`graphics`/`static` cloud stream (`docs/telemetry/backend_contract.md`) — iRacing never spoke v1, so this flag effectively disables cloud streaming for it.
+- `STREAM_HZ` - v2 tick rate in Hz, applied by each adapter's rate limiter (default: `20`, hard-capped at `60` per the backend contract).
 
 ### `.env.local` (Not Committed)
 This file is **optional** and **should not be committed** to git. Add it locally for development overrides. Any variables defined here will override values from `.env`.
@@ -110,3 +112,5 @@ Env.Load(envLocalPath);   // Loads .env.local (if exists)
 - Store sensitive credentials in `.env` (use `.env.local` instead)
 - Use uppercase variables with spaces
 - Forget to add `=` between key and value
+
+| `F1_UDP_PORT` | `20777` | UDP port the F1 25/26 telemetry source listens on. Must match the game's UDP Telemetry settings (format 2025/2026, broadcast to this PC). |

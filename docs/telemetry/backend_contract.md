@@ -1,4 +1,6 @@
-# Backend Contract
+# Backend Contract (v1 — legacy)
+
+> **Superseded by protocol v2** — see [`backend_contract_v2.md`](./backend_contract_v2.md). v1 frames (`physics`/`graphics`/`static`) are still accepted by the backend for old clients, but new adapters must emit v2 `tick` frames. The canonical copy of the v2 spec lives in the Turn One monorepo at `docs/architecture/sim-telemetry-protocol-v2.md`.
 
 The Turn One Link client sends a rich, sessionised telemetry stream over the `wss://backend.t1f1.com/api/ws/telemetry` endpoint.
 

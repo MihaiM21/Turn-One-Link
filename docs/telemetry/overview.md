@@ -1,5 +1,14 @@
 # Telemetry Overview
 
+> **Scope:** this page documents the **local mobile protocol** (`t1_protocol.md`) — the T1
+> Physics/Graphics/Static shape broadcast by `LocalWebSocketServer` to paired phones on the same
+> network, and (only when `PROTOCOL_V1=true`) the legacy v1 cloud stream. It is unaffected by
+> cloud protocol v2. For the sim-neutral `tick`/`lap_complete`/`session_start` frames the desktop
+> app streams to the backend by default, see **`docs/telemetry/backend_contract_v2.md`** instead —
+> different envelope (`{ v: 2, type, timestamp, sessionId, data }`), different field names/units
+> (e.g. `gear`: −1=R/0=N/1..n instead of this page's 0=R/1=N/2=1st…), and rate-limited to
+> `STREAM_HZ` rather than raw shared-memory rate.
+
 All messages shared by the Turn One Link desktop app over the WebSocket share the same top-level JSON envelope.
 
 ## JSON Message Schema

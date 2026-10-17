@@ -18,6 +18,8 @@ public class ConnectionService : IDisposable
         "F12024",
         "F1_24",
         "F1_25",
+        "F1_26",
+        "F126",
         "Le Mans Ultimate",
     ];
 

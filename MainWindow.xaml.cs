@@ -4,8 +4,10 @@ using System.Net.Sockets;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using Turn_One_Link.Services;
+using Turn_One_Link.Services.Telemetry;
 using Turn_One_Link.Views;
 using Application = System.Windows.Application;
 using Color = System.Windows.Media.Color;
@@ -17,8 +19,12 @@ public partial class MainWindow : Window
 {
     private readonly AuthService _auth = new();
     private readonly ConnectionService _connection = new();
-    private readonly AccTelemetryService _telemetry = new();
+    private ITelemetrySource? _telemetry;
+    private string _activeSourceName = "ACC";
     private readonly SessionManager _sessionManager = new();
+    private readonly DeltaEngine _deltaEngine = new();
+    private readonly FuelManager _fuelManager = new();
+    private readonly SessionLoggingService _sessionLogger = new();
     private TelemetryStreamingService? _streaming;
     private LocalWebSocketServer? _localServer;
     private LoginView? _loginView;
@@ -27,6 +33,7 @@ public partial class MainWindow : Window
     private bool _simConnected;
     private bool _serverConnected;
     private bool _telemetryActive;
+    private int _lastMaxRpm = 9000;   // updated from static data
     private DateTime _lastConsoleLog = DateTime.MinValue;
 
     public MainWindow()
@@ -50,9 +57,11 @@ public partial class MainWindow : Window
     {
         _isExiting = true;
         _connection.Dispose();
-        _telemetry.Dispose();
+        _telemetry?.Dispose();
         _streaming?.Dispose();
         _localServer?.Dispose();
+        _sessionLogger.FlushOnShutdown();
+        _sessionLogger.Dispose();
     }
 
     protected override void OnClosing(CancelEventArgs e)
@@ -149,28 +158,32 @@ public partial class MainWindow : Window
                 UpdateAccentMark();
                 _dashboardView?.ApplySimStatus(state.Status, state.GameName);
 
-                bool isAcc = state.GameName != null && (
-                    state.GameName.Contains("Assetto Corsa") ||
-                    state.GameName.Contains("AC2") ||
-                    state.GameName == "acs");
-
-                if (_simConnected && isAcc)
+                if (_simConnected)
                 {
-                    StartTelemetryAsync();
+                    if (!_telemetryActive)
+                    {
+                        var source = CreateSourceFor(state.GameName, out var sourceName);
+                        if (source != null)
+                            StartTelemetryAsync(source, sourceName);
+                    }
                 }
-                else if (!_simConnected)
+                else
                 {
                     _sessionManager.OnSimDisconnected();
                     StopTelemetry();
+                    _dashboardView?.HideLiveTelemetry();
                 }
             });
+
+        _dashboardView.DesiredHeightChanged += contentHeight =>
+            Dispatcher.Invoke(() => AnimateWindowHeight(contentHeight + ChromeOverhead));
 
         MainContent.Content = _dashboardView;
         _connection.Start();
 
         Dispatcher.BeginInvoke(() =>
         {
-            MinHeight = 640;
+            MinHeight = 340;
             Height    = 640;
         }, System.Windows.Threading.DispatcherPriority.Render);
     }
@@ -263,10 +276,55 @@ public partial class MainWindow : Window
 
     // ── Telemetry ─────────────────────────────────────────────────────────────
 
-    private void StartTelemetryAsync()
+    /// <summary>Resolves which telemetry source to use for a detected sim process name.
+    /// Returns null for sims Turn One Link doesn't have telemetry support for yet.</summary>
+    private static ITelemetrySource? CreateSourceFor(string? gameName, out string sourceName)
+    {
+        sourceName = "ACC";
+        if (gameName == null) return null;
+
+        // "Assetto Corsa Competizione" and original "Assetto Corsa" (acs.exe) share the same
+        // shared-memory struct family and one adapter class, but need distinct v2 `source`
+        // wire values (docs/telemetry/backend_contract_v2.md §2: "acc" vs "ac").
+        bool isCompetizione = gameName.Contains("Competizione", StringComparison.OrdinalIgnoreCase) ||
+                              gameName.Contains("AC2");
+        bool isOriginalAc = gameName == "acs" ||
+                             (gameName.Contains("Assetto Corsa", StringComparison.OrdinalIgnoreCase) && !isCompetizione);
+
+        if (isCompetizione)
+        {
+            sourceName = "ACC";
+            return new AccTelemetrySourceAdapter("acc");
+        }
+        if (isOriginalAc)
+        {
+            sourceName = "AC";
+            return new AccTelemetrySourceAdapter("ac");
+        }
+
+        if (gameName.Contains("iRacing", StringComparison.OrdinalIgnoreCase))
+        {
+            sourceName = "iRacing";
+            return new IRacingTelemetryService();
+        }
+
+        // EA F1 25/26 broadcast telemetry over UDP; the exact title is resolved from the packet
+        // header's packetFormat once the first packet arrives (Services/F1/F1UdpTelemetrySource.cs).
+        if (gameName.StartsWith("F1", StringComparison.OrdinalIgnoreCase))
+        {
+            sourceName = "F1";
+            return new Turn_One_Link.Services.F1.F1UdpTelemetrySource();
+        }
+
+        return null; // other sims in ConnectionService.OtherSimProcessNames stay undetected for telemetry
+    }
+
+    private void StartTelemetryAsync(ITelemetrySource source, string sourceName)
     {
         if (_telemetryActive) return;
         _telemetryActive = true;
+        _telemetry = source;
+        _activeSourceName = sourceName;
 
         _streaming?.Dispose();
         _streaming = new TelemetryStreamingService(
@@ -275,15 +333,15 @@ public partial class MainWindow : Window
             msg => _dashboardView?.AddConsoleLog($"[SYS] {msg}")
         );
 
-        WireSessionManager(_streaming);
+        WireSessionManager(_streaming, source);
         WireStreamingState(_streaming);
-        WireTelemetryEvents(_streaming);
+        WireTelemetryEvents(_streaming, source);
 
         _ = _streaming.StartAsync();
-        _telemetry.Start();
+        source.Start();
     }
 
-    private void WireSessionManager(TelemetryStreamingService streaming)
+    private void WireSessionManager(TelemetryStreamingService streaming, ITelemetrySource telemetry)
     {
         // Detach any prior subscriptions defensively
         _sessionManager.SessionStarted       -= OnSessionStarted;
@@ -291,38 +349,73 @@ public partial class MainWindow : Window
         _sessionManager.SessionPaused        -= OnSessionPaused;
         _sessionManager.SessionResumed       -= OnSessionResumed;
         _sessionManager.StaticRefreshRequested -= OnStaticRefreshRequested;
+        _sessionManager.SessionInfoReadyV2   -= OnSessionInfoReadyV2;
 
         _sessionManager.SessionStarted       += OnSessionStarted;
         _sessionManager.SessionEnded         += OnSessionEnded;
         _sessionManager.SessionPaused        += OnSessionPaused;
         _sessionManager.SessionResumed       += OnSessionResumed;
         _sessionManager.StaticRefreshRequested += OnStaticRefreshRequested;
+        _sessionManager.SessionInfoReadyV2   += OnSessionInfoReadyV2;
 
         void OnSessionStarted(SessionInfo info)
         {
+            _deltaEngine.Reset();
+            _fuelManager.Reset();
+            _sessionLogger.OnSessionStarted(info);
             streaming.SetActiveSession(info.SessionId);
-            streaming.EmitSessionStart(info);
+            // v1 session_start (ACC-shaped) only goes out under PROTOCOL_V1; the v2 shape is
+            // emitted separately from SessionInfoReadyV2 once the richer T1SessionInfo arrives.
+            if (TelemetryEnv.ProtocolV1Enabled) streaming.EmitSessionStart(info);
             _dashboardView?.AddConsoleLog($"[SESSION] Start {info.SessionType} on {info.Track} ({info.CarModel})");
         }
         void OnSessionEnded(SessionEndInfo info)
         {
-            streaming.EmitSessionEnd(info);
+            _deltaEngine.Reset();
+            _fuelManager.Reset();
+            _sessionLogger.OnSessionEnded(info);
+            if (TelemetryEnv.ProtocolV1Enabled)
+                streaming.EmitSessionEnd(info);
+            else
+                streaming.EmitSessionEndV2(info.SessionId, info.EndedAt, info.CompletedLaps, info.BestLapMs);
             streaming.SetActiveSession(null);
             _dashboardView?.AddConsoleLog($"[SESSION] End — laps:{info.CompletedLaps} best:{info.BestLapMs}ms");
         }
         void OnSessionPaused(string id)
         {
-            streaming.EmitSessionPause(id);
-            streaming.SetStreamingFilters(physicsEnabled: false, graphicsEnabled: true);
+            if (TelemetryEnv.ProtocolV1Enabled)
+            {
+                streaming.EmitSessionPause(id);
+                streaming.SetStreamingFilters(physicsEnabled: false, graphicsEnabled: true);
+            }
+            else
+            {
+                streaming.EmitSessionPauseV2(id);
+                streaming.SetTickStreamingEnabled(false);
+            }
             _dashboardView?.AddConsoleLog("[SESSION] Paused");
         }
         void OnSessionResumed(string id)
         {
-            streaming.EmitSessionResume(id);
-            streaming.SetStreamingFilters(physicsEnabled: true, graphicsEnabled: true);
+            if (TelemetryEnv.ProtocolV1Enabled)
+            {
+                streaming.EmitSessionResume(id);
+                streaming.SetStreamingFilters(physicsEnabled: true, graphicsEnabled: true);
+            }
+            else
+            {
+                streaming.EmitSessionResumeV2(id);
+                streaming.SetTickStreamingEnabled(true);
+            }
             _dashboardView?.AddConsoleLog("[SESSION] Resumed");
         }
-        void OnStaticRefreshRequested() => _telemetry.RequestStaticRefresh();
+        void OnStaticRefreshRequested() => telemetry.RequestStaticRefresh();
+        void OnSessionInfoReadyV2(T1SessionInfo info)
+        {
+            if (TelemetryEnv.ProtocolV1Enabled) return;
+            streaming.OnSessionInfo(info);
+            _dashboardView?.AddConsoleLog($"[SESSION] v2 info: {info.Source} {info.TrackId} ({info.CarId}) {info.SessionType}");
+        }
     }
 
     private void WireStreamingState(TelemetryStreamingService streaming)
@@ -348,52 +441,70 @@ public partial class MainWindow : Window
             });
     }
 
-    private void WireTelemetryEvents(TelemetryStreamingService streaming)
+    private void WireTelemetryEvents(TelemetryStreamingService streaming, ITelemetrySource telemetry)
     {
-        _telemetry.PhysicsUpdated    -= streaming.OnPhysicsUpdated;
-        _telemetry.GraphicsUpdated   -= streaming.OnGraphicsUpdated;
-        _telemetry.StaticInfoUpdated -= streaming.OnStaticUpdated;
-        _telemetry.OnError           -= Telemetry_OnError;
-        _telemetry.GraphicsUpdated   -= _sessionManager.OnGraphics;
-        _telemetry.StaticInfoUpdated -= _sessionManager.OnStatic;
+        telemetry.OnError           += Telemetry_OnError;
 
         // Session manager runs first so sessionId is current before frames are enqueued.
-        _telemetry.GraphicsUpdated   += _sessionManager.OnGraphics;
-        _telemetry.StaticInfoUpdated += _sessionManager.OnStatic;
+        telemetry.GraphicsUpdated     += _sessionManager.OnGraphics;
+        telemetry.StaticInfoUpdated   += _sessionManager.OnStatic;
+        telemetry.SessionInfoUpdated  += _sessionManager.OnSessionInfoV2;
 
-        _telemetry.PhysicsUpdated    += streaming.OnPhysicsUpdated;
-        _telemetry.GraphicsUpdated   += streaming.OnGraphicsUpdated;
-        _telemetry.StaticInfoUpdated += streaming.OnStaticUpdated;
-        _telemetry.OnError           += Telemetry_OnError;
+        // Cloud protocol v2 (docs/telemetry/backend_contract_v2.md): every source's
+        // tick/lap_complete stream to the backend the same way, sim-neutral.
+        telemetry.TickUpdated    += streaming.OnTick;
+        telemetry.LapCompleted   += streaming.OnLapComplete;
+
+        // Legacy v1 cloud stream speaks ACC's raw shared-memory struct shape (see
+        // docs/telemetry/backend_contract.md). Only wired when PROTOCOL_V1=true; v2 is the
+        // default for every source, ACC/AC included.
+        if (TelemetryEnv.ProtocolV1Enabled && telemetry is AccTelemetrySourceAdapter accAdapter)
+        {
+            accAdapter.Inner.PhysicsUpdated    += streaming.OnPhysicsUpdated;
+            accAdapter.Inner.GraphicsUpdated   += streaming.OnGraphicsUpdated;
+            accAdapter.Inner.StaticInfoUpdated += streaming.OnStaticUpdated;
+        }
 
         // ── T1 Protocol: update mapper + broadcast to local clients ──────────
-        _telemetry.PhysicsUpdated += p =>
+        telemetry.PhysicsUpdated += p =>
         {
+            _fuelManager.OnPhysics(p.Fuel);
             T1TelemetryMapper.UpdatePhysics(p);
             BroadcastT1Frame();
+            _sessionLogger.OnPhysics(p);
+
+            // Drive the live telemetry HUD
+            _dashboardView?.UpdateLiveTelemetry(
+                p.SpeedKmh, p.Gear, p.Rpm, _lastMaxRpm, p.Gas, p.Brake);
 
             if (_dashboardView != null && DateTime.UtcNow - _lastConsoleLog > TimeSpan.FromMilliseconds(250))
             {
                 _lastConsoleLog = DateTime.UtcNow;
-                _dashboardView.AddConsoleLog($"[PHYSICS] Spd:{p.SpeedKmh:F1} | RPM:{p.Rpms} | Gear:{p.Gear} | Gas:{p.Gas:F2} | Brake:{p.Brake:F2}");
+                _dashboardView.AddConsoleLog($"[PHYSICS] Spd:{p.SpeedKmh:F1} | RPM:{p.Rpm} | Gear:{p.Gear} | Gas:{p.Gas:F2} | Brake:{p.Brake:F2}");
             }
         };
 
-        _telemetry.GraphicsUpdated += g =>
+        telemetry.GraphicsUpdated += g =>
         {
+            // SessionManager.OnGraphics is subscribed first, so Phase is current here.
+            _deltaEngine.OnGraphics(g, _sessionManager.Phase);
+            _fuelManager.OnGraphics(g, _sessionManager.Phase);
+            T1TelemetryMapper.UpdateProMetrics(_deltaEngine.GetSnapshot(), _fuelManager.GetSnapshot());
             T1TelemetryMapper.UpdateGraphics(g);
             BroadcastT1Frame();
+            _sessionLogger.OnGraphics(g, _deltaEngine.GetSnapshot(), _fuelManager.GetSnapshot());
 
             if (_dashboardView != null && DateTime.UtcNow - _lastConsoleLog > TimeSpan.FromMilliseconds(250))
             {
                 _lastConsoleLog = DateTime.UtcNow;
-                _dashboardView.AddConsoleLog($"[GRAPHICS] Lap:{g.CompletedLaps} | Pos:{g.Position} | Status:{g.Status} | Time:{g.CurrentTime}");
+                _dashboardView.AddConsoleLog($"[GRAPHICS] Lap:{g.CompletedLaps} | Pos:{g.Position} | Status:{g.Status} | Time:{g.CurrentTimeText}");
             }
         };
 
-        _telemetry.StaticInfoUpdated += s =>
+        telemetry.StaticInfoUpdated += s =>
         {
             T1TelemetryMapper.UpdateStatic(s);
+            if (s.MaxRpm > 0) _lastMaxRpm = s.MaxRpm;
             _dashboardView?.AddConsoleLog($"[STATIC] Track:{s.Track} | Car:{s.CarModel} | Driver:{s.PlayerName} {s.PlayerSurname}");
         };
     }
@@ -401,7 +512,7 @@ public partial class MainWindow : Window
     private void BroadcastT1Frame()
     {
         if (_localServer == null || _localServer.ClientCount == 0) return;
-        var frame = T1TelemetryMapper.BuildFrame(_sessionManager.ActiveSessionId);
+        var frame = T1TelemetryMapper.BuildFrame(_sessionManager.ActiveSessionId, _activeSourceName);
         if (frame != null)
             _localServer.Broadcast(T1TelemetryMapper.Serialize(frame));
     }
@@ -421,8 +532,35 @@ public partial class MainWindow : Window
         if (!_telemetryActive) return;
         _telemetryActive = false;
 
-        _telemetry.Stop();
+        _telemetry?.Stop();
+        _telemetry?.Dispose();
+        _telemetry = null;
         _ = _streaming?.StopAsync();
+    }
+
+    // ── Window sizing ─────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Total non-content pixels the window adds on top of the dashboard's own height.
+    /// = shadow margin (20×2) + title bar (48) + dashboard grid margin (12+16).
+    /// </summary>
+    private const double ChromeOverhead = 116;
+
+    /// <summary>
+    /// Smoothly resizes the window to <paramref name="targetHeight"/> in 200 ms.
+    /// </summary>
+    private void AnimateWindowHeight(double targetHeight)
+    {
+        var animation = new DoubleAnimation(
+            targetHeight,
+            new Duration(TimeSpan.FromMilliseconds(200)))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
+        };
+        MinHeight = Math.Min(MinHeight, targetHeight); // shrink fence first
+        BeginAnimation(HeightProperty, animation);
+        // Update MinHeight after the animation settles so the user can't drag below content
+        animation.Completed += (_, _) => MinHeight = targetHeight;
     }
 
     // ── Window chrome ─────────────────────────────────────────────────────────
