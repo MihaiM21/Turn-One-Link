@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
@@ -8,6 +8,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <UseWPF>true</UseWPF>
         <UseWindowsForms>true</UseWindowsForms>
+        <ApplicationIcon>Content\app_icon.ico</ApplicationIcon>
     </PropertyGroup>
 
     <ItemGroup>
@@ -27,6 +28,7 @@
       <Resource Include="Content\logo mic.png" />
       <Resource Include="Content\logo32.png" />
       <Resource Include="Content\logo bigger margins t1.png" />
+      <Resource Include="Content\app_icon.ico" />
     </ItemGroup>
 
 </Project>
