@@ -3,10 +3,12 @@ using System.IO;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using Turn_One_Link.Services.AccTelemetry;
+using Turn_One_Link.Services.Telemetry;
 
 namespace Turn_One_Link.Services;
 
@@ -41,14 +43,25 @@ public class TelemetryStreamingService : IDisposable
     private StreamWriter? _devFileLogger;
 
     private string? _activeSessionId;
+    private DateTimeOffset _activeSessionStartedAt;
     private bool _streamPhysicsEnabled = true;
     private bool _streamGraphicsEnabled = true;
+    private bool _streamTicksEnabled = true;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         IncludeFields = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+        Converters = { new JsonStringEnumConverter() }
+    };
+
+    // Cloud protocol v2 (docs/telemetry/backend_contract_v2.md): tick/lap_complete/
+    // session_start are flat, camelCase, omit-null-optionals, with T1Corners as [fl,fr,rl,rr].
+    private static readonly JsonSerializerOptions V2JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Converters = { new T1CornersJsonConverter() }
     };
 
     public event Action<TelemetryConnectionState>? ConnectionStateChanged;
@@ -60,7 +73,9 @@ public class TelemetryStreamingService : IDisposable
     {
         _auth = auth;
         _onLog = onLog;
-        _clientVersion = typeof(TelemetryStreamingService).Assembly.GetName().Version?.ToString() ?? "0.0.0";
+        // Bumped for cloud protocol v2 (tick/lap_complete/session_start) — see installer.iss
+        // MyAppVersion, which must be kept in sync.
+        _clientVersion = "1.1.0";
 
         var baseUrl = apiBaseUrl ?? Environment.GetEnvironmentVariable("API_URL") ?? "https://backend.t1f1.com/api";
         _wsUrl = baseUrl.Replace("https://", "wss://").Replace("http://", "ws://").TrimEnd('/') + "/ws/telemetry";
@@ -118,7 +133,12 @@ public class TelemetryStreamingService : IDisposable
 
     // ---- Session control ----------------------------------------------------
 
-    public void SetActiveSession(string? sessionId) => _activeSessionId = sessionId;
+    public void SetActiveSession(string? sessionId)
+    {
+        if (sessionId != null && sessionId != _activeSessionId)
+            _activeSessionStartedAt = DateTimeOffset.UtcNow;
+        _activeSessionId = sessionId;
+    }
 
     public void SetStreamingFilters(bool physicsEnabled, bool graphicsEnabled)
     {
@@ -126,18 +146,75 @@ public class TelemetryStreamingService : IDisposable
         _streamGraphicsEnabled = graphicsEnabled;
     }
 
+    /// <summary>v2 equivalent of <see cref="SetStreamingFilters"/>: while paused, the client
+    /// stops sending `tick`s (backend_contract_v2.md §5).</summary>
+    public void SetTickStreamingEnabled(bool enabled) => _streamTicksEnabled = enabled;
+
     public void EmitSessionStart(SessionInfo info)
     {
         Enqueue("session_start", new
         {
             sessionId = info.SessionId,
-            sessionType = info.SessionType.ToString(),
+            sessionType = T1TelemetryMapper.SessionTypeWireName(info.SessionType),
             track = info.Track,
             carModel = info.CarModel,
             driver = info.DriverName,
             startedAt = info.StartedAt.ToUnixTimeMilliseconds()
         }, info.SessionId);
     }
+
+    // ---- Cloud protocol v2 (docs/telemetry/backend_contract_v2.md) ----------------------
+
+    /// <summary>v2 `session_start` — upserts on the current active sessionId (backend_contract_v2.md §2).
+    /// Requires <see cref="SetActiveSession"/> to have been called first, same as OnTick/OnLapComplete.</summary>
+    public void OnSessionInfo(T1SessionInfo info)
+    {
+        if (_activeSessionId == null) return;
+
+        EnqueueV2("session_start", new
+        {
+            source = info.Source,
+            simVersion = info.SimVersion,
+            trackId = info.TrackId,
+            trackName = info.TrackName,
+            trackLengthM = info.TrackLengthM,
+            sectorCount = info.SectorCount,
+            sectorBoundariesM = info.SectorBoundariesM,
+            car = new { id = info.CarId, name = info.CarName, @class = info.CarClass },
+            sessionType = T1Wire.SessionTypeName(info.SessionType),
+            sessionTypeRaw = info.SessionTypeRaw,
+            driver = info.Driver,
+            tickRateHz = info.TickRateHz,
+            startedAt = _activeSessionStartedAt.ToUnixTimeMilliseconds()
+        }, _activeSessionId);
+    }
+
+    /// <summary>v2 `session_end` — adds `lapsCompleted`/`bestLapMs` per backend_contract_v2.md §5.</summary>
+    public void EmitSessionEndV2(string sessionId, DateTimeOffset endedAt, int lapsCompleted, int bestLapMs)
+    {
+        EnqueueV2("session_end", new
+        {
+            endedAt = endedAt.ToUnixTimeMilliseconds(),
+            lapsCompleted,
+            bestLapMs
+        }, sessionId);
+    }
+
+    public void EmitSessionPauseV2(string sessionId) => EnqueueV2("session_pause",
+        new { at = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }, sessionId);
+
+    public void EmitSessionResumeV2(string sessionId) => EnqueueV2("session_resume",
+        new { at = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }, sessionId);
+
+    /// <summary>v2 `tick` — sent at <see cref="TelemetryEnv.StreamHz"/>, dropped while paused.</summary>
+    public void OnTick(T1TickFrame frame)
+    {
+        if (!_streamTicksEnabled) return;
+        EnqueueV2("tick", frame, _activeSessionId);
+    }
+
+    /// <summary>v2 `lap_complete` — enriches the lap the backend already cut on the `tick` `lap` increment.</summary>
+    public void OnLapComplete(T1LapComplete lap) => EnqueueV2("lap_complete", lap, _activeSessionId);
 
     public void EmitSessionEnd(SessionEndInfo info)
     {
@@ -199,6 +276,40 @@ public class TelemetryStreamingService : IDisposable
         catch (Exception ex)
         {
             _onLog?.Invoke($"Telemetry serialize error: {ex.Message}");
+        }
+    }
+
+    /// <summary>Cloud protocol v2 envelope: <c>{ v: 2, type, timestamp, sessionId, data }</c>
+    /// (backend_contract_v2.md §1), serialized with <see cref="V2JsonOptions"/> (camelCase,
+    /// omit-null, T1Corners as an array).</summary>
+    private void EnqueueV2<T>(string type, T data, string? sessionId)
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(new
+            {
+                v = 2,
+                type,
+                timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                sessionId,
+                data
+            }, V2JsonOptions);
+
+#if DEBUG
+            if (_devFileLogger != null)
+            {
+                lock (_devFileLogger)
+                {
+                    _devFileLogger.WriteLine(json);
+                }
+            }
+#endif
+
+            _channel.Writer.TryWrite(new OutgoingMessage(json));
+        }
+        catch (Exception ex)
+        {
+            _onLog?.Invoke($"Telemetry v2 serialize error: {ex.Message}");
         }
     }
 
@@ -296,12 +407,17 @@ public class TelemetryStreamingService : IDisposable
             if (sinceHeartbeat >= HeartbeatInterval)
             {
                 lastHeartbeat = DateTime.UtcNow;
-                Enqueue("client_heartbeat", new
+                var heartbeatData = new
                 {
-                    sessionId = _activeSessionId,
                     clientVersion = _clientVersion,
                     uptimeMs = (long)(DateTimeOffset.UtcNow - _startedAt).TotalMilliseconds
-                }, _activeSessionId);
+                };
+                // client_heartbeat can precede any session (sessionId may be null); the v/v1
+                // envelope choice must still match whatever the rest of this connection uses.
+                if (TelemetryEnv.ProtocolV1Enabled)
+                    Enqueue("client_heartbeat", new { sessionId = _activeSessionId, heartbeatData.clientVersion, heartbeatData.uptimeMs }, _activeSessionId);
+                else
+                    EnqueueV2("client_heartbeat", heartbeatData, _activeSessionId);
             }
 
             using var waitCts = CancellationTokenSource.CreateLinkedTokenSource(token);

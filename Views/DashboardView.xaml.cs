@@ -15,11 +15,16 @@ public partial class DashboardView : UserControl
     public event Action? SignOutRequested;
     /// <summary>Fired when the user successfully saves a new port and approves a restart.</summary>
     public event Action<int>? PortChangeRequested;
+    /// <summary>Fired whenever the visible panel set changes so the host window can resize.</summary>
+    public event Action<double>? DesiredHeightChanged;
 
     private readonly SolidColorBrush _connectedBrush    = new(Color.FromRgb(0x22, 0xC5, 0x5E));
     private readonly SolidColorBrush _disconnectedBrush = new(Color.FromRgb(0xEF, 0x44, 0x44));
     private readonly SolidColorBrush _connectingBrush   = new(Color.FromRgb(0xFF, 0xC1, 0x4B));
-    private readonly SolidColorBrush _deviceBrush       = new(Color.FromRgb(0x60, 0xA5, 0xFA)); // blue for devices
+    private readonly SolidColorBrush _deviceBrush       = new(Color.FromRgb(0x60, 0xA5, 0xFA));
+
+    private AppSettings _settings = AppSettings.Load();
+    private bool _simIsStreaming;
 
     public DashboardView()
     {
@@ -27,6 +32,32 @@ public partial class DashboardView : UserControl
         ApplySimStatus(SimStatus.Disconnected, null);
         ApplyServerStatus(false);
         ApplyLocalDeviceCount(0);
+
+        // Initialise toggles from persisted settings (suppress Changed events while setting)
+        ShowTelemetryToggle.Checked         -= SettingsToggle_Changed;
+        ShowConsoleToggle.Checked           -= SettingsToggle_Changed;
+        ShowLocalWsToggle.Checked           -= SettingsToggle_Changed;
+        EnableSessionLoggingToggle.Checked   -= SettingsToggle_Changed;
+        ShowTelemetryToggle.Unchecked       -= SettingsToggle_Changed;
+        ShowConsoleToggle.Unchecked         -= SettingsToggle_Changed;
+        ShowLocalWsToggle.Unchecked         -= SettingsToggle_Changed;
+        EnableSessionLoggingToggle.Unchecked -= SettingsToggle_Changed;
+
+        ShowTelemetryToggle.IsChecked        = _settings.ShowLiveTelemetry;
+        ShowConsoleToggle.IsChecked          = _settings.ShowConsole;
+        ShowLocalWsToggle.IsChecked          = _settings.ShowLocalWsInfo;
+        EnableSessionLoggingToggle.IsChecked = _settings.EnableSessionLogging;
+
+        ShowTelemetryToggle.Checked         += SettingsToggle_Changed;
+        ShowConsoleToggle.Checked           += SettingsToggle_Changed;
+        ShowLocalWsToggle.Checked           += SettingsToggle_Changed;
+        EnableSessionLoggingToggle.Checked   += SettingsToggle_Changed;
+        ShowTelemetryToggle.Unchecked       += SettingsToggle_Changed;
+        ShowConsoleToggle.Unchecked         += SettingsToggle_Changed;
+        ShowLocalWsToggle.Unchecked         += SettingsToggle_Changed;
+        EnableSessionLoggingToggle.Unchecked += SettingsToggle_Changed;
+
+        ApplySettings();
     }
 
     public void SetUser(string displayName)
@@ -139,6 +170,136 @@ public partial class DashboardView : UserControl
             ConsoleOutput.Text += $"[{DateTime.Now:HH:mm:ss.fff}] {message}\n";
             ConsoleScroll.ScrollToEnd();
         });
+    }
+
+    // ── Live Telemetry HUD ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Updates the live telemetry HUD with the latest physics data.
+    /// Panel is only shown when both the setting is enabled AND the sim is streaming.
+    /// Safe to call from any thread.
+    /// </summary>
+    public void UpdateLiveTelemetry(float speedKmh, int gear, int rpm, int maxRpm, float throttle, float brake)
+    {
+        Dispatcher.InvokeAsync(() =>
+        {
+            _simIsStreaming = true;
+
+            // Honour the user's setting — only reveal if enabled
+            if (_settings.ShowLiveTelemetry)
+                LiveTelemetryPanel.Visibility = Visibility.Visible;
+
+            // Speed
+            LiveSpeedText.Text = ((int)speedKmh).ToString();
+
+            // Gear: raw ACC value → display string (0=R, 1=N, 2+=1st, 2nd, …)
+            LiveGearText.Text = gear switch
+            {
+                <= 0 => "R",
+                1    => "N",
+                _    => (gear - 1).ToString()
+            };
+
+            // RPM
+            LiveRpmText.Text = rpm.ToString("N0");
+
+            // Bars — width proportional to container ActualWidth
+            double containerWidth = RpmBarContainer.ActualWidth;
+            if (containerWidth > 0)
+            {
+                double rpmFraction      = maxRpm > 0 ? Math.Clamp((double)rpm / maxRpm, 0, 1) : 0;
+                double throttleFraction = Math.Clamp(throttle, 0f, 1f);
+                double brakeFraction    = Math.Clamp(brake,    0f, 1f);
+
+                RpmBar.Width      = containerWidth * rpmFraction;
+                ThrottleBar.Width = ThrottleBarContainer.ActualWidth * throttleFraction;
+                BrakeBar.Width    = BrakeBarContainer.ActualWidth    * brakeFraction;
+            }
+        });
+    }
+
+    /// <summary>
+    /// Hides the live telemetry panel when the sim disconnects.
+    /// </summary>
+    public void HideLiveTelemetry()
+    {
+        Dispatcher.InvokeAsync(() =>
+        {
+            _simIsStreaming = false;
+            LiveTelemetryPanel.Visibility = Visibility.Collapsed;
+            DesiredHeightChanged?.Invoke(CalculateDesiredHeight());
+        });
+    }
+
+    // ── Settings overlay ─────────────────────────────────────────────────────
+
+    private void SettingsButton_Click(object sender, RoutedEventArgs e)
+        => SettingsOverlay.Visibility = Visibility.Visible;
+
+    private void CloseSettingsButton_Click(object sender, RoutedEventArgs e)
+        => SettingsOverlay.Visibility = Visibility.Collapsed;
+
+    private void SettingsBackdrop_MouseDown(object sender, MouseButtonEventArgs e)
+        => SettingsOverlay.Visibility = Visibility.Collapsed;
+
+    private void SettingsToggle_Changed(object sender, RoutedEventArgs e)
+    {
+        _settings.ShowLiveTelemetry     = ShowTelemetryToggle.IsChecked        == true;
+        _settings.ShowConsole           = ShowConsoleToggle.IsChecked          == true;
+        _settings.ShowLocalWsInfo       = ShowLocalWsToggle.IsChecked          == true;
+        _settings.EnableSessionLogging  = EnableSessionLoggingToggle.IsChecked == true;
+        _settings.Save();
+        ApplySettings();
+    }
+
+    private void OpenSessionsFolderButton_Click(object sender, RoutedEventArgs e)
+    {
+        var sessionsDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "TurnOneLink", "sessions");
+        try
+        {
+            Directory.CreateDirectory(sessionsDir);
+            System.Diagnostics.Process.Start("explorer.exe", sessionsDir);
+        }
+        catch { }
+    }
+
+    private void ApplySettings()
+    {
+        // Live telemetry: only show when the setting is on AND the sim is actively streaming
+        LiveTelemetryPanel.Visibility =
+            _settings.ShowLiveTelemetry && _simIsStreaming
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+        // Console log
+        ConsoleSection.Visibility =
+            _settings.ShowConsole ? Visibility.Visible : Visibility.Collapsed;
+
+        // Local WS info card
+        LocalDevicesCard.Visibility =
+            _settings.ShowLocalWsInfo ? Visibility.Visible : Visibility.Collapsed;
+
+        DesiredHeightChanged?.Invoke(CalculateDesiredHeight());
+    }
+
+    /// <summary>
+    /// Calculates the content height the host window should adopt based on visible panels.
+    /// Chrome overhead (shadow margins + titlebar) is added by the caller.
+    /// </summary>
+    private double CalculateDesiredHeight()
+    {
+        // Base: greeting row + spacers + Sim card + Server card + padding + version label
+        // (always visible regardless of settings)
+        const double Base = 300;
+
+        double h = Base;
+        if (_settings.ShowLocalWsInfo)                          h += 118; // Local WS card
+        if (_settings.ShowLiveTelemetry && _simIsStreaming)     h += 156; // Live Telemetry panel
+        if (_settings.ShowConsole)                              h += 172; // Console (MinHeight=160 + margins)
+
+        return h;
     }
 
     // ── Port editor ───────────────────────────────────────────────────────────

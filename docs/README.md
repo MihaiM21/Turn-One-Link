@@ -28,20 +28,20 @@ The development of Turn One Link is divided into five strategic phases:
 * [x] **T1 Protocol:** Unified JSON schema for all supported games (see [T1 Protocol](telemetry/t1_protocol.md)).
 * [x] **Connection Heartbeat:** Auto-recovery system for lost mobile signals (5s ping / 10s pong timeout).
 
-### Phase 2: First Contact (Assetto Corsa Support) 
-* [ ] **Shared Memory Integration:** Direct RAM reading for Assetto Corsa & ACC.
-* [ ] **Auto-Hook:** Intelligent game process detection (Launch & Stream).
-* [ ] **Basic Telemetry:** Speed, Gear, RPM, and Pedal Inputs.
+### Phase 2: First Contact (Assetto Corsa Support) ✅
+* [x] **Shared Memory Integration:** Direct RAM reading for Assetto Corsa & ACC.
+* [x] **Auto-Hook:** Intelligent game process detection (Launch & Stream).
+* [x] **Basic Telemetry:** Speed, Gear, RPM, and Pedal Inputs.
 
-### Phase 3: Pro Metrics
-* [ ] **Tire Physics:** Monitoring core/surface temps and pressure (PSI).
-* [ ] **Delta Engine:** Real-time +/- comparison against your session best.
-* [ ] **Fuel Management:** Live fuel-per-lap consumption and stint estimation.
+### Phase 3: Pro Metrics ✅
+* [x] **Tire Physics:** Monitoring core/surface temps and pressure (PSI).
+* [x] **Delta Engine:** Real-time +/- comparison against your session best.
+* [x] **Fuel Management:** Live fuel-per-lap consumption and stint estimation.
 
-### Phase 4: Elite Titles & Persistence
-* [ ] **iRacing SDK:** Implementation of the official iRacing telemetry wrapper.
-* [ ] **Session Logging:** Local storage of telemetry for post-race analysis.
-* [ ] **Multi-Device Sync:** Stream to multiple tablets/phones simultaneously.
+### Phase 4: Elite Titles & Persistence ✅
+* [x] **iRacing SDK:** iRacing telemetry via the `IRSDKSharper` SDK wrapper, behind a new sim-neutral `ITelemetrySource` abstraction shared with ACC.
+* [x] **Session Logging:** Local JSONL session logs (with retention cleanup) for post-race analysis, under a user-configurable toggle.
+* [x] **Multi-Device Sync:** Confirmed — `LocalWebSocketServer` already broadcasts to multiple concurrent paired clients.
 
 ### Phase 5: Public Release
 * [ ] **Auto-Updater:** Seamless background updates for new game patches.
@@ -71,7 +71,7 @@ The development of Turn One Link is divided into five strategic phases:
 ## Tech Stack
 * **Language:** C# / .NET 9
 * **UI Framework:** WPF (Windows Presentation Foundation)
-* **Networking:** WebSockets (WatsonWebsocket)
+* **Networking:** WebSockets (raw `System.Net.WebSockets` over a `TcpListener`-based manual HTTP upgrade handshake — see `Services/LocalWebSocketServer.cs`)
 * **Data Format:** JSON
 
 ## 🤝 Contributing
