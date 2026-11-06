@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     private readonly DeltaEngine _deltaEngine = new();
     private readonly FuelManager _fuelManager = new();
     private readonly SessionLoggingService _sessionLogger = new();
+    private UpdateService? _updates;
     private TelemetryStreamingService? _streaming;
     private LocalWebSocketServer? _localServer;
     private LoginView? _loginView;
@@ -40,11 +41,40 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         Loaded += OnWindowLoaded;
+        // Subscribed once for the window's lifetime (not per sign-in, which stacked handlers).
+        _connection.SimStatusChanged += OnSimStatusChanged;
     }
+
+    private void OnSimStatusChanged(SimConnectionState state) =>
+        Dispatcher.Invoke(() =>
+        {
+            _simConnected = state.Status == SimStatus.Connected;
+            UpdateAccentMark();
+            _dashboardView?.ApplySimStatus(state.Status, state.GameName);
+
+            if (_simConnected)
+            {
+                if (!_telemetryActive)
+                {
+                    var source = CreateSourceFor(state.GameName, out var sourceName);
+                    if (source != null)
+                        StartTelemetryAsync(source, sourceName);
+                }
+            }
+            else
+            {
+                _sessionManager.OnSimDisconnected();
+                StopTelemetry();
+                _dashboardView?.HideLiveTelemetry();
+            }
+        });
 
     private async void OnWindowLoaded(object sender, RoutedEventArgs e)
     {
         Loaded -= OnWindowLoaded;
+
+        _updates = new UpdateService(msg => _dashboardView?.AddConsoleLog(msg));
+        _updates.Start();
 
         var (restored, error) = await _auth.TryRestoreSessionAsync();
         if (restored)
@@ -56,7 +86,17 @@ public partial class MainWindow : Window
     public void PrepareExit()
     {
         _isExiting = true;
+        _updates?.Dispose();
         _connection.Dispose();
+
+        // Close an open session and give its session_end a moment to reach the server.
+        _sessionManager.OnSimDisconnected();
+        if (_streaming is { } streaming)
+        {
+            // Off the UI thread: StopAsync's continuations must not need the dispatcher we're blocking.
+            try { Task.Run(() => streaming.StopAsync()).Wait(TimeSpan.FromSeconds(4)); } catch (AggregateException) { }
+        }
+
         _telemetry?.Dispose();
         _streaming?.Dispose();
         _localServer?.Dispose();
@@ -151,30 +191,6 @@ public partial class MainWindow : Window
         // Start local WebSocket server
         StartLocalServer();
 
-        _connection.SimStatusChanged += state =>
-            Dispatcher.Invoke(() =>
-            {
-                _simConnected = state.Status == SimStatus.Connected;
-                UpdateAccentMark();
-                _dashboardView?.ApplySimStatus(state.Status, state.GameName);
-
-                if (_simConnected)
-                {
-                    if (!_telemetryActive)
-                    {
-                        var source = CreateSourceFor(state.GameName, out var sourceName);
-                        if (source != null)
-                            StartTelemetryAsync(source, sourceName);
-                    }
-                }
-                else
-                {
-                    _sessionManager.OnSimDisconnected();
-                    StopTelemetry();
-                    _dashboardView?.HideLiveTelemetry();
-                }
-            });
-
         _dashboardView.DesiredHeightChanged += contentHeight =>
             Dispatcher.Invoke(() => AnimateWindowHeight(contentHeight + ChromeOverhead));
 
@@ -193,7 +209,7 @@ public partial class MainWindow : Window
     private void StartLocalServer()
     {
         int port = GetLocalPort();
-        string pin  = GeneratePin();
+        string pin  = LocalWebSocketServer.GeneratePin();
 
         _localServer?.Dispose();
         _localServer = new LocalWebSocketServer(port, pin,
@@ -220,12 +236,6 @@ public partial class MainWindow : Window
         var envPort = Environment.GetEnvironmentVariable("LOCAL_WS_PORT")
                    ?? Environment.GetEnvironmentVariable("WEBSOCKET_PORT");
         return int.TryParse(envPort, out int p) ? p : 8080;
-    }
-
-    private static string GeneratePin()
-    {
-        // 6-digit PIN, regenerated each app launch for security
-        return Random.Shared.Next(100_000, 999_999).ToString();
     }
 
     private static string GetLocalIpAddress()
@@ -258,16 +268,16 @@ public partial class MainWindow : Window
 
     private void OnSignOut()
     {
-        _auth.Logout();
+        _sessionManager.OnSimDisconnected(); // end the open session while still authenticated
         _connection.Stop();
         StopTelemetry();
+        _auth.Logout();
         ShowLogin();
     }
 
     private void OnPortChangeRequested(int newPort)
     {
-        // Gracefully shut down all services, then relaunch the current executable.
-        PrepareExit();
+        // Relaunch the current executable, then exit (ExitApp runs PrepareExit once).
         var exe = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
         if (!string.IsNullOrEmpty(exe))
             System.Diagnostics.Process.Start(exe);
@@ -310,7 +320,7 @@ public partial class MainWindow : Window
 
         // EA F1 25/26 broadcast telemetry over UDP; the exact title is resolved from the packet
         // header's packetFormat once the first packet arrives (Services/F1/F1UdpTelemetrySource.cs).
-        if (gameName.StartsWith("F1", StringComparison.OrdinalIgnoreCase))
+        if (gameName is "F1 25" or "F1 26")
         {
             sourceName = "F1";
             return new Turn_One_Link.Services.F1.F1UdpTelemetrySource();

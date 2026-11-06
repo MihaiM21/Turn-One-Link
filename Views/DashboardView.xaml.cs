@@ -38,25 +38,31 @@ public partial class DashboardView : UserControl
         ShowConsoleToggle.Checked           -= SettingsToggle_Changed;
         ShowLocalWsToggle.Checked           -= SettingsToggle_Changed;
         EnableSessionLoggingToggle.Checked   -= SettingsToggle_Changed;
+        SendCrashReportsToggle.Checked       -= SettingsToggle_Changed;
         ShowTelemetryToggle.Unchecked       -= SettingsToggle_Changed;
         ShowConsoleToggle.Unchecked         -= SettingsToggle_Changed;
         ShowLocalWsToggle.Unchecked         -= SettingsToggle_Changed;
         EnableSessionLoggingToggle.Unchecked -= SettingsToggle_Changed;
+        SendCrashReportsToggle.Unchecked     -= SettingsToggle_Changed;
 
         ShowTelemetryToggle.IsChecked        = _settings.ShowLiveTelemetry;
         ShowConsoleToggle.IsChecked          = _settings.ShowConsole;
         ShowLocalWsToggle.IsChecked          = _settings.ShowLocalWsInfo;
         EnableSessionLoggingToggle.IsChecked = _settings.EnableSessionLogging;
+        SendCrashReportsToggle.IsChecked     = _settings.SendCrashReports;
 
         ShowTelemetryToggle.Checked         += SettingsToggle_Changed;
         ShowConsoleToggle.Checked           += SettingsToggle_Changed;
         ShowLocalWsToggle.Checked           += SettingsToggle_Changed;
         EnableSessionLoggingToggle.Checked   += SettingsToggle_Changed;
+        SendCrashReportsToggle.Checked       += SettingsToggle_Changed;
         ShowTelemetryToggle.Unchecked       += SettingsToggle_Changed;
         ShowConsoleToggle.Unchecked         += SettingsToggle_Changed;
         ShowLocalWsToggle.Unchecked         += SettingsToggle_Changed;
         EnableSessionLoggingToggle.Unchecked += SettingsToggle_Changed;
+        SendCrashReportsToggle.Unchecked     += SettingsToggle_Changed;
 
+        VersionLabel.Text = $"v{AppInfo.Version}";
         ApplySettings();
     }
 
@@ -135,7 +141,7 @@ public partial class DashboardView : UserControl
     {
         PortConflictText.Text =
             $"Port {port} is already in use by another application. " +
-            $"Set LOCAL_WS_PORT={port + 1} (or another free port) in your .env file and restart.";
+            $"Click the edit button to pick another port (e.g. {port + 1}) — Turn One Link will restart.";
         PortConflictBanner.Visibility = Visibility.Visible;
 
         // Grey-out the local card to indicate it's non-functional
@@ -248,6 +254,7 @@ public partial class DashboardView : UserControl
         _settings.ShowConsole           = ShowConsoleToggle.IsChecked          == true;
         _settings.ShowLocalWsInfo       = ShowLocalWsToggle.IsChecked          == true;
         _settings.EnableSessionLogging  = EnableSessionLoggingToggle.IsChecked == true;
+        _settings.SendCrashReports      = SendCrashReportsToggle.IsChecked     == true;
         _settings.Save();
         ApplySettings();
     }
@@ -342,8 +349,8 @@ public partial class DashboardView : UserControl
         PortInputBox.ToolTip = null;
         PortEditPanel.Visibility = Visibility.Collapsed;
 
-        // Persist the new port to .env.local
-        SavePortToEnvLocal(port);
+        // Persist the new port to the per-user overrides file
+        SavePortToOverrides(port);
 
         // Ask user to restart
         var result = System.Windows.MessageBox.Show(
@@ -356,11 +363,12 @@ public partial class DashboardView : UserControl
             PortChangeRequested?.Invoke(port);
     }
 
-    private static void SavePortToEnvLocal(int port)
+    private static void SavePortToOverrides(int port)
     {
         try
         {
-            var envLocalPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".env.local");
+            var envLocalPath = Services.AppPaths.OverridesEnv;
+            Directory.CreateDirectory(Services.AppPaths.DataDir);
 
             // Read existing lines (or start fresh)
             var lines = File.Exists(envLocalPath)
@@ -385,7 +393,7 @@ public partial class DashboardView : UserControl
         catch (Exception ex)
         {
             System.Windows.MessageBox.Show(
-                $"Could not save port setting: {ex.Message}\n\nPlease set LOCAL_WS_PORT={port} manually in .env.local.",
+                $"Could not save port setting: {ex.Message}\n\nPlease set LOCAL_WS_PORT={port} manually in {Services.AppPaths.OverridesEnv}.",
                 "Save Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }

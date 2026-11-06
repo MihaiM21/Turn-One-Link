@@ -2,7 +2,7 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Turn One Link", "Turn One Link.csproj", "{4D589AFF-824E-43E1-B7C6-A36AF9048285}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Turn One Link.Tests", "..\Turn One Link.Tests\Turn One Link.Tests.csproj", "{BF8599BE-D902-4C37-A465-8A1DFFC7E538}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Turn One Link.Tests", "tests\Turn One Link.Tests\Turn One Link.Tests.csproj", "{BF8599BE-D902-4C37-A465-8A1DFFC7E538}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

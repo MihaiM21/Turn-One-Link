@@ -79,7 +79,12 @@ public sealed class IRacingTelemetryService : ITelemetrySource
         try { _sdk.Stop(); } catch { }
     }
 
-    public void RequestStaticRefresh() => _staticRefreshRequested = true;
+    public void RequestStaticRefresh()
+    {
+        // A new session on the same track/car/type must still announce itself with session_start.
+        _lastSessionInfoKey = null;
+        _staticRefreshRequested = true;
+    }
 
     public void Dispose() => Stop();
 

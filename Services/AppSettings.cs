@@ -6,12 +6,15 @@ using System.Text.Json.Serialization;
 namespace Turn_One_Link.Services;
 
 /// <summary>
-/// Persists user-configurable dashboard preferences to settings.json
-/// in the application base directory.
+/// Persists user-configurable dashboard preferences to settings.json in
+/// <see cref="AppPaths.DataDir"/> (the install folder is replaced on every update).
 /// </summary>
 public sealed class AppSettings
 {
-    private static readonly string SettingsPath = Path.Combine(
+    private static readonly string SettingsPath = Path.Combine(AppPaths.DataDir, "settings.json");
+
+    // Builds before 1.2 kept settings next to the exe; read them once if nothing newer exists.
+    private static readonly string LegacySettingsPath = Path.Combine(
         AppDomain.CurrentDomain.BaseDirectory, "settings.json");
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -39,6 +42,10 @@ public sealed class AppSettings
     [JsonPropertyName("enableSessionLogging")]
     public bool EnableSessionLogging { get; set; } = true;
 
+    /// <summary>Send anonymous crash reports (no telemetry, no account data). Default: on.</summary>
+    [JsonPropertyName("sendCrashReports")]
+    public bool SendCrashReports { get; set; } = true;
+
     // ── Persistence ───────────────────────────────────────────────────────────
 
     /// <summary>
@@ -48,9 +55,10 @@ public sealed class AppSettings
     {
         try
         {
-            if (File.Exists(SettingsPath))
+            var path = File.Exists(SettingsPath) ? SettingsPath : LegacySettingsPath;
+            if (File.Exists(path))
             {
-                var json = File.ReadAllText(SettingsPath);
+                var json = File.ReadAllText(path);
                 return JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
             }
         }
@@ -66,6 +74,7 @@ public sealed class AppSettings
     {
         try
         {
+            Directory.CreateDirectory(AppPaths.DataDir);
             File.WriteAllText(SettingsPath, JsonSerializer.Serialize(this, JsonOptions));
         }
         catch { }

@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace Turn_One_Link.Services;
@@ -16,9 +17,13 @@ namespace Turn_One_Link.Services;
 /// Uses a manual HTTP WebSocket upgrade handshake, then hands off to
 /// <see cref="WebSocket.CreateFromStream"/> for framing.
 /// Features:
-///   - PIN-based pairing (clients authenticate before receiving data).
+///   - PIN-based pairing (clients authenticate before receiving data), with a lockout after
+///     repeated wrong PINs from the same address.
+///   - Only private-network and loopback peers are served; browser connections from another
+///     site's page (a different Origin) are refused.
 ///   - Heartbeat ping every 5 s; clients that do not pong within 10 s are dropped.
-///   - Fan-out: every T1 frame is broadcast to all authenticated clients simultaneously.
+///   - Fan-out: every T1 frame is queued to each authenticated client; each client has exactly one
+///     sender, so frames never overlap on a socket, and a slow client drops stale frames.
 ///   - Port-conflict detection: raises <see cref="PortConflict"/> if the port is in use.
 /// </summary>
 public sealed class LocalWebSocketServer : IDisposable
@@ -27,6 +32,11 @@ public sealed class LocalWebSocketServer : IDisposable
     private static readonly TimeSpan PingInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan PongTimeout  = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan AuthTimeout  = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan HandshakeTimeout = TimeSpan.FromSeconds(5);
+    private const int MaxHandshakeBytes = 8 * 1024;
+    private const int MaxFailedPins = 5;
+    private static readonly TimeSpan PinLockout = TimeSpan.FromSeconds(60);
+    private const int ClientQueueLength = 4; // telemetry frames; older ones are stale anyway
 
     private static readonly JsonSerializerOptions JsonCamel = new()
     {
@@ -38,6 +48,7 @@ public sealed class LocalWebSocketServer : IDisposable
     private readonly int _port;
     private readonly Action<string>? _onLog;
     private readonly ConcurrentDictionary<string, ConnectedClient> _clients = new();
+    private readonly ConcurrentDictionary<IPAddress, (int Failures, DateTime LockedUntil)> _pinFailures = new();
     private readonly CancellationTokenSource _cts = new();
 
     private TcpListener? _listener;
@@ -59,6 +70,9 @@ public sealed class LocalWebSocketServer : IDisposable
         _onLog = onLog;
     }
 
+    /// <summary>A 6-digit pairing PIN from a cryptographic RNG, new every launch.</summary>
+    public static string GeneratePin() => RandomNumberGenerator.GetInt32(100_000, 1_000_000).ToString();
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     public bool TryStart()
@@ -78,7 +92,7 @@ public sealed class LocalWebSocketServer : IDisposable
         _acceptTask = Task.Run(() => AcceptLoopAsync(_cts.Token));
         _pingTask   = Task.Run(() => PingLoopAsync(_cts.Token));
 
-        _onLog?.Invoke($"[LOCAL] Server started on port {_port}. PIN: {_pin}");
+        _onLog?.Invoke($"[LOCAL] Server started on port {_port}.");
         return true;
     }
 
@@ -101,9 +115,9 @@ public sealed class LocalWebSocketServer : IDisposable
     public void Broadcast(string json)
     {
         if (_clients.IsEmpty) return;
-        var bytes = new ArraySegment<byte>(Encoding.UTF8.GetBytes(json));
-        foreach (var (id, client) in _clients)
-            _ = SendToClientAsync(id, client, bytes);
+        var bytes = Encoding.UTF8.GetBytes(json);
+        foreach (var (_, client) in _clients)
+            client.Enqueue(bytes);
     }
 
     // ── Accept loop ───────────────────────────────────────────────────────────
@@ -135,21 +149,31 @@ public sealed class LocalWebSocketServer : IDisposable
         tcp.NoDelay = true;
         using var _ = tcp; // ensure disposal
 
+        var remote = (tcp.Client.RemoteEndPoint as IPEndPoint)?.Address;
+        if (remote == null || !IsLocalNetwork(remote))
+        {
+            _onLog?.Invoke($"[LOCAL] Refused connection from non-local address {remote}.");
+            return;
+        }
+        if (IsLockedOut(remote)) return;
+
         NetworkStream stream;
         try { stream = tcp.GetStream(); }
         catch { return; }
 
-        // ── Step 1: Read HTTP upgrade request ─────────────────────────────────
-        string? wsKey = null;
-        bool isUpgrade = false;
+        // ── Step 1: Read HTTP upgrade request (bounded in size and time) ──────
+        Dictionary<string, string> headers;
         try
         {
-            var headers = await ReadHttpHeadersAsync(stream, token);
-            headers.TryGetValue("Sec-WebSocket-Key", out wsKey);
-            headers.TryGetValue("Upgrade", out var upgradeVal);
-            isUpgrade = string.Equals(upgradeVal, "websocket", StringComparison.OrdinalIgnoreCase);
+            using var handshakeCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            handshakeCts.CancelAfter(HandshakeTimeout);
+            headers = await ReadHttpHeadersAsync(stream, handshakeCts.Token);
         }
         catch { return; }
+
+        headers.TryGetValue("Sec-WebSocket-Key", out var wsKey);
+        headers.TryGetValue("Upgrade", out var upgradeVal);
+        bool isUpgrade = string.Equals(upgradeVal, "websocket", StringComparison.OrdinalIgnoreCase);
 
         if (!isUpgrade || wsKey == null)
         {
@@ -158,6 +182,15 @@ public sealed class LocalWebSocketServer : IDisposable
             var resp = Encoding.ASCII.GetBytes(
                 $"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n");
             try { await stream.WriteAsync(resp, token); await stream.WriteAsync(body, token); } catch { }
+            return;
+        }
+
+        // A web page on another site could otherwise open ws://<lan-ip>:port and guess PINs.
+        if (headers.TryGetValue("Origin", out var origin) && !IsSameHostOrigin(origin, headers.GetValueOrDefault("Host")))
+        {
+            var forbidden = Encoding.ASCII.GetBytes("HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+            try { await stream.WriteAsync(forbidden, token); } catch { }
+            _onLog?.Invoke($"[LOCAL] Refused browser connection from origin {origin}.");
             return;
         }
 
@@ -207,15 +240,16 @@ public sealed class LocalWebSocketServer : IDisposable
                 catch { }
             }
 
-            if (receivedPin != _pin)
+            if (!PinMatches(receivedPin))
             {
+                RecordPinFailure(remote);
                 await SendJsonAsync(ws, new { type = "auth_failed" }, CancellationToken.None);
                 await ws.CloseAsync(WebSocketCloseStatus.PolicyViolation, "Wrong PIN", CancellationToken.None);
-                _onLog?.Invoke($"[LOCAL] Client {clientId} failed PIN auth.");
+                _onLog?.Invoke($"[LOCAL] Client {clientId} ({remote}) failed PIN auth.");
                 return;
             }
 
-            await SendJsonAsync(ws, new { type = "auth_ok", clientId }, authCts.Token);
+            _pinFailures.TryRemove(remote, out var _);
         }
         catch (OperationCanceledException)
         {
@@ -224,14 +258,27 @@ public sealed class LocalWebSocketServer : IDisposable
             return;
         }
 
-        // ── Step 5: Register and receive ─────────────────────────────────────
+        // ── Step 5: Register, send and receive ────────────────────────────────
+        // Registered before auth_ok goes out, so frames broadcast right after pairing are queued, not lost.
         var client = new ConnectedClient(clientId, ws);
         _clients[clientId] = client;
+        try { await SendJsonAsync(ws, new { type = "auth_ok", clientId }, token); }
+        catch
+        {
+            RemoveClient(clientId);
+            return;
+        }
         _onLog?.Invoke($"[LOCAL] Client {clientId} authenticated. Total: {_clients.Count}");
         ClientCountChanged?.Invoke(_clients.Count);
 
+        // Started only after auth_ok, so it remains the single sender from here on.
+        var sendTask = client.RunSenderAsync(token);
         try { await ReceiveLoopAsync(clientId, client, token); }
-        finally { RemoveClient(clientId); }
+        finally
+        {
+            RemoveClient(clientId);
+            try { await sendTask; } catch { }
+        }
     }
 
     private async Task ReceiveLoopAsync(string clientId, ConnectedClient client, CancellationToken token)
@@ -269,8 +316,8 @@ public sealed class LocalWebSocketServer : IDisposable
             catch (OperationCanceledException) { break; }
 
             var now     = DateTime.UtcNow;
-            var pingMsg = new ArraySegment<byte>(Encoding.UTF8.GetBytes(
-                JsonSerializer.Serialize(new { type = "ping", at = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() })));
+            var pingMsg = Encoding.UTF8.GetBytes(
+                JsonSerializer.Serialize(new { type = "ping", at = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }));
 
             foreach (var (id, client) in _clients)
             {
@@ -280,29 +327,61 @@ public sealed class LocalWebSocketServer : IDisposable
                     RemoveClient(id);
                     continue;
                 }
-                try
-                {
-                    if (client.WebSocket.State == WebSocketState.Open)
-                        await client.WebSocket.SendAsync(pingMsg, WebSocketMessageType.Text, true, token);
-                }
-                catch { RemoveClient(id); }
+                // Through the client's queue like every other frame: one sender per socket.
+                client.Enqueue(pingMsg);
             }
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // ── Security helpers ──────────────────────────────────────────────────────
 
-    private async Task SendToClientAsync(string clientId, ConnectedClient client, ArraySegment<byte> bytes)
+    private bool PinMatches(string? candidate) =>
+        candidate != null &&
+        CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(candidate), Encoding.UTF8.GetBytes(_pin));
+
+    private bool IsLockedOut(IPAddress address) =>
+        _pinFailures.TryGetValue(address, out var f) && f.LockedUntil > DateTime.UtcNow;
+
+    private void RecordPinFailure(IPAddress address)
     {
-        if (client.WebSocket.State != WebSocketState.Open) return;
-        try
-        {
-            await client.SendLock.WaitAsync();
-            await client.WebSocket.SendAsync(bytes, WebSocketMessageType.Text, true, CancellationToken.None);
-        }
-        catch { RemoveClient(clientId); }
-        finally { client.SendLock.Release(); }
+        _pinFailures.AddOrUpdate(address,
+            _ => (1, DateTime.MinValue),
+            (_, f) =>
+            {
+                var failures = f.LockedUntil > DateTime.MinValue && f.LockedUntil <= DateTime.UtcNow ? 1 : f.Failures + 1;
+                return failures >= MaxFailedPins
+                    ? (failures, DateTime.UtcNow + PinLockout)
+                    : (failures, DateTime.MinValue);
+            });
     }
+
+    /// <summary>Loopback, RFC 1918, link-local and IPv6 unique-local addresses only.</summary>
+    public static bool IsLocalNetwork(IPAddress address)
+    {
+        if (address.IsIPv4MappedToIPv6) address = address.MapToIPv4();
+        if (IPAddress.IsLoopback(address)) return true;
+
+        if (address.AddressFamily == AddressFamily.InterNetwork)
+        {
+            var b = address.GetAddressBytes();
+            return b[0] == 10
+                || (b[0] == 172 && b[1] >= 16 && b[1] <= 31)
+                || (b[0] == 192 && b[1] == 168)
+                || (b[0] == 169 && b[1] == 254);
+        }
+
+        return address.IsIPv6LinkLocal || address.IsIPv6UniqueLocal || address.IsIPv6SiteLocal;
+    }
+
+    /// <summary>True when a browser's Origin is the server itself (a page Link serves), not another site.</summary>
+    public static bool IsSameHostOrigin(string origin, string? host)
+    {
+        if (string.IsNullOrEmpty(host)) return false;
+        if (!Uri.TryCreate(origin, UriKind.Absolute, out var o)) return false;
+        return string.Equals(o.Authority, host, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static async Task SendJsonAsync(WebSocket ws, object payload, CancellationToken token)
     {
@@ -336,7 +415,8 @@ public sealed class LocalWebSocketServer : IDisposable
 
     /// <summary>
     /// Reads HTTP request headers from a raw TCP stream into a dictionary.
-    /// Stops at the blank line that terminates the header block.
+    /// Stops at the blank line that terminates the header block; refuses anything over
+    /// <see cref="MaxHandshakeBytes"/>.
     /// </summary>
     private static async Task<Dictionary<string, string>> ReadHttpHeadersAsync(
         NetworkStream stream, CancellationToken token)
@@ -352,6 +432,8 @@ public sealed class LocalWebSocketServer : IDisposable
 
             char c = (char)buf[0];
             sb.Append(c);
+            if (sb.Length > MaxHandshakeBytes)
+                throw new InvalidOperationException("Handshake too large.");
 
             // Detect end of headers (\r\n\r\n)
             if (sb.Length >= 4 &&
@@ -386,16 +468,42 @@ public sealed class LocalWebSocketServer : IDisposable
 
     private sealed class ConnectedClient : IDisposable
     {
+        private readonly Channel<byte[]> _outbox = Channel.CreateBounded<byte[]>(
+            new BoundedChannelOptions(ClientQueueLength)
+            {
+                FullMode = BoundedChannelFullMode.DropOldest,
+                SingleReader = true,
+                SingleWriter = false,
+            });
+
         public string     Id        { get; }
         public WebSocket  WebSocket { get; }
-        public SemaphoreSlim SendLock { get; } = new(1, 1);
         public DateTime   LastPong  { get; set; } = DateTime.UtcNow;
 
         public ConnectedClient(string id, WebSocket ws) { Id = id; WebSocket = ws; }
 
+        public void Enqueue(byte[] message) => _outbox.Writer.TryWrite(message);
+
+        /// <summary>The only code that sends on this socket.</summary>
+        public async Task RunSenderAsync(CancellationToken token)
+        {
+            try
+            {
+                await foreach (var message in _outbox.Reader.ReadAllAsync(token))
+                {
+                    if (WebSocket.State != WebSocketState.Open) break;
+                    await WebSocket.SendAsync(message, WebSocketMessageType.Text, true, token);
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (WebSocketException) { }
+            catch (ObjectDisposedException) { }
+        }
+
         public void Dispose()
         {
-            SendLock.Dispose();
+            _outbox.Writer.TryComplete();
+            try { WebSocket.Abort(); } catch { }
             try { WebSocket.Dispose(); } catch { }
         }
     }
