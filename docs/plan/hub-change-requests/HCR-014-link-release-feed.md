@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | draft |
+| **Status** | approved (owner, 2026-11-06) |
 | **Requested by** | turn-one-link — LF-01, HF-06, lap validity "client" rule |
 | **Needed by** | Phase 0–1 |
 | **Breaking?** | **No — additive only.** `GET api/simracing/link/release` keeps its response; new optional fields and a new route. |

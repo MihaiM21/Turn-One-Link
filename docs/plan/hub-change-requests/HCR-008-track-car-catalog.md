@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | draft |
+| **Status** | approved (owner, 2026-11-06) |
 | **Requested by** | turn-one-link — HF-03, HF-11 (decision D6) |
 | **Needed by** | Phase 1 (closed beta) |
 | **Breaking?** | **No — additive only.** |

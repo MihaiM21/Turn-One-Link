@@ -8,22 +8,36 @@ using System.Text.Json;
 namespace Turn_One_Link.Services;
 
 public record UserSession(string Email, string DisplayName);
-internal sealed record StoredAuthState(string Email, string DisplayName, string AccessToken, DateTimeOffset? ExpiresAtUtc);
+internal sealed record StoredAuthState(string Email, string DisplayName, string AccessToken, DateTimeOffset? ExpiresAtUtc, string? DeviceToken = null);
+
+/// <summary>A sign-in code from <c>POST /api/devices/pair/start</c> (HCR-006), shown to the user while Link polls.</summary>
+public sealed record PairingCode(string DeviceCode, string UserCode, string VerifyUrl, TimeSpan Interval, DateTimeOffset ExpiresAt);
+
+public enum PairingPollStatus { Pending, Approved, Expired, Failed }
 
 public class AuthService
 {
-    private static readonly HttpClient HttpClient = new()
-    {
-        Timeout = TimeSpan.FromSeconds(15)
-    };
+    private readonly HttpClient HttpClient;
+
+    // Persistence of the encrypted sign-in state; tests swap these so they never touch the real file.
+    internal Func<StoredAuthState, Task> SaveState { get; init; } = SecureTokenStore.SaveAsync;
+    internal Action ClearState { get; init; } = SecureTokenStore.Clear;
 
     private readonly string? _apiBaseUrl;
     private UserSession? _session;
     private string? _accessToken;
     private DateTimeOffset? _accessTokenExpiresAt;
+    // Rotating device token from pairing; lets Link renew its 15-minute access token on its own.
+    private string? _deviceToken;
+    private readonly SemaphoreSlim _refreshLock = new(1, 1);
 
-    public AuthService(string? apiBaseUrl = null)
+    public AuthService(string? apiBaseUrl = null) : this(apiBaseUrl, handler: null) { }
+
+    internal AuthService(string? apiBaseUrl, HttpMessageHandler? handler)
     {
+        HttpClient = handler == null ? new HttpClient() : new HttpClient(handler);
+        HttpClient.Timeout = TimeSpan.FromSeconds(15);
+
         if (Environment.GetEnvironmentVariable("USE_LOCAL_API") == "true")
         {
             Console.WriteLine("Using local API endpoint.");
@@ -62,16 +76,18 @@ public class AuthService
             if (stored is null)
                 return (false, null);
 
-            if (stored.ExpiresAtUtc is { } expiresAt && expiresAt <= DateTimeOffset.UtcNow)
+            _session = new UserSession(stored.Email, stored.DisplayName);
+            _accessToken = stored.AccessToken;
+            _accessTokenExpiresAt = stored.ExpiresAtUtc;
+            _deviceToken = stored.DeviceToken;
+            ApplyAuthorizationHeader(_accessToken);
+
+            // A paired device renews its access token; a password login's token simply expires.
+            if (!await EnsureFreshTokenAsync())
             {
                 Logout();
                 return (false, "Session expired. Please sign in again.");
             }
-
-            _session = new UserSession(stored.Email, stored.DisplayName);
-            _accessToken = stored.AccessToken;
-            _accessTokenExpiresAt = stored.ExpiresAtUtc;
-            ApplyAuthorizationHeader(_accessToken);
 
             // The token may have been revoked (password change, signing-key rotation) before it
             // expired. A definite 401 sends the user to sign in; being offline keeps the session.
@@ -135,7 +151,7 @@ public class AuthService
             _session = session;
 
             // Persist an encrypted session so the user stays signed in between app launches.
-            await SecureTokenStore.SaveAsync(new StoredAuthState(
+            await SaveState(new StoredAuthState(
                 session.Email,
                 session.DisplayName,
                 parsedPayload.AccessToken,
@@ -157,13 +173,129 @@ public class AuthService
         }
     }
 
+    // ── Device pairing (HCR-006) ─────────────────────────────────────────────────
+
+    /// <summary>Asks the server for a sign-in code to show; the user approves it on turnonehub.com/link.</summary>
+    public async Task<(PairingCode? Code, string? Error)> StartPairingAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_apiBaseUrl)) return (null, "API_URL is not configured.");
+        try
+        {
+            using var response = await HttpClient.PostAsJsonAsync($"{_apiBaseUrl}/devices/pair/start", new
+            {
+                deviceName = Environment.MachineName,
+                platform = "windows",
+                appVersion = AppInfo.Version,
+            });
+            if (!response.IsSuccessStatusCode)
+                return (null, (int)response.StatusCode == 429
+                    ? "Too many sign-in attempts. Try again in a few minutes."
+                    : $"Couldn't start sign-in ({(int)response.StatusCode}).");
+
+            using var json = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+            var root = json.RootElement;
+            return (new PairingCode(
+                DeviceCode: root.GetProperty("deviceCode").GetString()!,
+                UserCode: root.GetProperty("userCode").GetString()!,
+                VerifyUrl: root.GetProperty("verifyUrlComplete").GetString()!,
+                Interval: TimeSpan.FromSeconds(Math.Max(1, root.GetProperty("interval").GetInt32())),
+                ExpiresAt: DateTimeOffset.UtcNow.AddSeconds(root.GetProperty("expiresIn").GetInt32())), null);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or KeyNotFoundException)
+        {
+            return (null, "Could not reach the server. Please check your connection.");
+        }
+    }
+
+    /// <summary>One poll. On approval, stores the device's tokens and signs in.</summary>
+    public async Task<PairingPollStatus> PollPairingAsync(PairingCode code)
+    {
+        if (DateTimeOffset.UtcNow >= code.ExpiresAt) return PairingPollStatus.Expired;
+        try
+        {
+            using var response = await HttpClient.PostAsJsonAsync($"{_apiBaseUrl}/devices/pair/poll", new { deviceCode = code.DeviceCode });
+            if ((int)response.StatusCode is 428 or 429) return PairingPollStatus.Pending; // pending / slow_down
+            if (response.StatusCode == HttpStatusCode.BadRequest) return PairingPollStatus.Expired;
+            if (!response.IsSuccessStatusCode) return PairingPollStatus.Pending;
+
+            if (!await ApplyDeviceTokensAsync(response.Content)) return PairingPollStatus.Failed;
+
+            var session = await TryFetchCurrentUserAsync("", "Driver") ?? new UserSession("", "Driver");
+            _session = session;
+            await PersistAsync();
+            return PairingPollStatus.Approved;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return PairingPollStatus.Pending; // transient; keep polling until the code expires
+        }
+        catch (JsonException)
+        {
+            return PairingPollStatus.Failed;
+        }
+    }
+
+    /// <summary>
+    /// Makes sure <see cref="AccessToken"/> is usable for at least two more minutes, renewing it with
+    /// the device token when needed. False means the user must sign in again.
+    /// </summary>
+    public async Task<bool> EnsureFreshTokenAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_accessToken)) return false;
+        if (!IsTokenExpired(toleranceSeconds: 120)) return true;
+        if (string.IsNullOrWhiteSpace(_deviceToken)) return !IsTokenExpired(toleranceSeconds: 0);
+
+        await _refreshLock.WaitAsync();
+        try
+        {
+            if (!IsTokenExpired(toleranceSeconds: 120)) return true; // another caller just renewed it
+
+            using var response = await HttpClient.PostAsJsonAsync($"{_apiBaseUrl}/devices/token/refresh", new { deviceToken = _deviceToken });
+            if (response.StatusCode == HttpStatusCode.Unauthorized) return false; // revoked on the website
+            if (!response.IsSuccessStatusCode) return !IsTokenExpired(toleranceSeconds: 0);
+
+            if (!await ApplyDeviceTokensAsync(response.Content)) return !IsTokenExpired(toleranceSeconds: 0);
+            await PersistAsync();
+            return true;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        {
+            return !IsTokenExpired(toleranceSeconds: 0); // offline: keep going while the current token lasts
+        }
+        finally
+        {
+            _refreshLock.Release();
+        }
+    }
+
+    private async Task<bool> ApplyDeviceTokensAsync(HttpContent content)
+    {
+        using var json = await JsonDocument.ParseAsync(await content.ReadAsStreamAsync());
+        var root = json.RootElement;
+        var access = TryGetString(root, "accessToken");
+        var device = TryGetString(root, "deviceToken");
+        if (string.IsNullOrWhiteSpace(access) || string.IsNullOrWhiteSpace(device)) return false;
+
+        _accessToken = access;
+        _deviceToken = device;
+        _accessTokenExpiresAt = root.TryGetProperty("accessTokenExpiresAt", out var exp) && exp.TryGetDateTimeOffset(out var at)
+            ? at
+            : DateTimeOffset.UtcNow.AddMinutes(15);
+        ApplyAuthorizationHeader(_accessToken);
+        return true;
+    }
+
+    private Task PersistAsync() => SaveState(new StoredAuthState(
+        _session?.Email ?? "", _session?.DisplayName ?? "Driver", _accessToken!, _accessTokenExpiresAt, _deviceToken));
+
     public void Logout()
     {
         _session = null;
         _accessToken = null;
         _accessTokenExpiresAt = null;
+        _deviceToken = null;
         ApplyAuthorizationHeader(null);
-        SecureTokenStore.Clear();
+        ClearState();
     }
 
     private async Task<bool> IsTokenRejectedByServerAsync()
@@ -406,7 +538,7 @@ public class AuthService
         return null;
     }
 
-    private static void ApplyAuthorizationHeader(string? accessToken)
+    private void ApplyAuthorizationHeader(string? accessToken)
     {
         HttpClient.DefaultRequestHeaders.Authorization = string.IsNullOrWhiteSpace(accessToken)
             ? null
