@@ -26,6 +26,8 @@ public partial class MainWindow : Window
     private readonly FuelManager _fuelManager = new();
     private readonly SessionLoggingService _sessionLogger = new();
     private UpdateService? _updates;
+    private CancellationTokenSource? _pairingCts;
+    private PairingCode? _pairingCode;
     private TelemetryStreamingService? _streaming;
     private LocalWebSocketServer? _localServer;
     private LoginView? _loginView;
@@ -175,6 +177,9 @@ public partial class MainWindow : Window
         MinHeight = 480;
         _loginView = new LoginView();
         _loginView.LoginRequested += OnLoginRequested;
+        _loginView.PairRequested += OnPairRequested;
+        _loginView.PairCancelRequested += CancelPairing;
+        _loginView.OpenBrowserRequested += () => { if (_pairingCode != null) OpenBrowser(_pairingCode.VerifyUrl); };
         MainContent.Content = _loginView;
 
         if (!string.IsNullOrWhiteSpace(error))
@@ -264,6 +269,70 @@ public partial class MainWindow : Window
             ShowDashboard();
         else
             _loginView.ShowError(error ?? "Login failed.");
+    }
+
+    // ── Device pairing (HCR-006) ──────────────────────────────────────────────
+
+    private async void OnPairRequested()
+    {
+        CancelPairing();
+        _loginView!.SetPairingStarting(true);
+        var (code, error) = await _auth.StartPairingAsync();
+        if (code == null)
+        {
+            _loginView.SetPairingStarting(false);
+            _loginView.ShowError(error ?? "Couldn't start sign-in.");
+            return;
+        }
+
+        _pairingCode = code;
+        var cts = _pairingCts = new CancellationTokenSource();
+        _loginView.ShowPairingCode(code.UserCode);
+        OpenBrowser(code.VerifyUrl);
+
+        while (!cts.IsCancellationRequested)
+        {
+            try { await Task.Delay(code.Interval, cts.Token); }
+            catch (TaskCanceledException) { return; }
+
+            var status = await _auth.PollPairingAsync(code);
+            if (cts.IsCancellationRequested) return;
+
+            switch (status)
+            {
+                case PairingPollStatus.Approved:
+                    _pairingCode = null;
+                    ShowDashboard();
+                    return;
+                case PairingPollStatus.Expired:
+                    _pairingCode = null;
+                    _loginView.ShowPairingStart();
+                    _loginView.ShowError("The code expired. Click the button to get a new one.");
+                    return;
+                case PairingPollStatus.Failed:
+                    _pairingCode = null;
+                    _loginView.ShowPairingStart();
+                    _loginView.ShowError("Sign-in failed. Please try again.");
+                    return;
+            }
+        }
+    }
+
+    private void CancelPairing()
+    {
+        _pairingCts?.Cancel();
+        _pairingCts = null;
+        _pairingCode = null;
+        _loginView?.ShowPairingStart();
+    }
+
+    private static void OpenBrowser(string url)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = url, UseShellExecute = true });
+        }
+        catch (System.ComponentModel.Win32Exception) { /* no default browser; the code is on screen */ }
     }
 
     private void OnSignOut()

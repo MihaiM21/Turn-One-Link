@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | draft |
+| **Status** | in progress (owner, 2026-11-06) |
 | **Requested by** | turn-one-link — LF-10, HF-01 |
 | **Needed by** | Phase 1 (closed beta, Jan 2027) |
 | **Breaking?** | **No — additive only.** Builds on HCR-003; website login unchanged. |
@@ -66,4 +66,8 @@ Deploy; Link ships pairing behind a setting, keeps email/password as fallback fo
 then removes it. Rollback = Link falls back to password login.
 
 ## Implementation notes
-_(Hub-side session fills this in.)_
+- Hub branch `feat/hcr-006-device-pairing`: `Domain/Entities/Device.cs` (Device, DevicePairing, DeviceRefreshToken), migration `AddDevicePairing`, `Infrastructure/Services/DeviceAuthService.cs`, `API/Controllers/DevicesController.cs`; `scope=link` paths in `API/Security/TokenScopes.cs`; the telemetry socket accepts `scope=link`; rate limits `pairing-start` (10/h) and `device-tokens` (30/min).
+- Website: `/link` approval page with the user's devices and sign-out; login returns to the page that sent you (`?next=`).
+- Link branch `feat/lf-10-device-pairing`: "Sign in with your browser" in the login view, token renewal before each connect (`AuthService.EnsureFreshTokenAsync`), email/password kept as a fallback.
+- Deviation: the device list lives on `/link` (the settings page is still a placeholder). `GET /api/devices/pair/{userCode}` also returns `approved`.
+- Tests: Hub `DeviceAuthServiceTests` (18), website `devices.test.ts` (11), Link `DevicePairingTests` (6).

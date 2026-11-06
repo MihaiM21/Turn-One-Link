@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | draft |
+| **Status** | approved (owner, 2026-11-06) |
 | **Requested by** | turn-one-link — HF-03, HF-04, HF-05, HF-07 (decisions D6, D12) |
 | **Needed by** | Phase 1 (closed beta) |
 | **Breaking?** | **No — additive only.** The existing lifetime-totals `GET /api/telemetry/leaderboards` stays. |
