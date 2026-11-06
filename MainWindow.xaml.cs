@@ -73,7 +73,7 @@ public partial class MainWindow : Window
     {
         Loaded -= OnWindowLoaded;
 
-        _updates = new UpdateService(msg => _dashboardView?.AddConsoleLog(msg));
+        _updates = new UpdateService(msg => _dashboardView?.AddConsoleLog(msg), _auth.ApiBaseUrl);
         _updates.Start();
 
         var (restored, error) = await _auth.TryRestoreSessionAsync();
@@ -195,6 +195,7 @@ public partial class MainWindow : Window
             Dispatcher.Invoke(() => AnimateWindowHeight(contentHeight + ChromeOverhead));
 
         MainContent.Content = _dashboardView;
+        if (_updates?.CompatMessage is { } compat) _dashboardView.AddConsoleLog($"[UPDATE] {compat}");
         _connection.Start();
 
         Dispatcher.BeginInvoke(() =>
