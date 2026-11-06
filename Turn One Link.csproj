@@ -9,14 +9,45 @@
         <UseWPF>true</UseWPF>
         <UseWindowsForms>true</UseWindowsForms>
         <ApplicationIcon>Content\app_icon.ico</ApplicationIcon>
+
+        <!-- The one place the version lives: shown in the UI, sent as clientVersion, used by the installer. -->
+        <Version>1.2.0</Version>
+        <Product>Turn One Link</Product>
+        <Company>Turn One</Company>
+
+        <!-- Program.Main runs Velopack's install/update hooks before WPF starts. -->
+        <StartupObject>Turn_One_Link.Program</StartupObject>
+
+        <!-- Single-file publish must carry WPF's native DLLs (wpfgfx, PresentationNative, ...) inside the exe. -->
+        <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+        <DebugType>none</DebugType>
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="DotNetEnv" Version="3.1.2" />
+      <PackageReference Include="DotNetEnv" Version="3.2.0" />
       <PackageReference Include="IRSDKSharper" Version="1.1.10" />
+      <PackageReference Include="Sentry" Version="6.12.1" />
+      <PackageReference Include="Velopack" Version="1.2.161" />
     </ItemGroup>
 
+    <!-- Crash reporting is off unless the build passes -p:SentryDsn=... (CI does, from a secret). -->
     <ItemGroup>
+      <AssemblyMetadata Include="SentryDsn" Value="$(SentryDsn)" />
+    </ItemGroup>
+
+    <!-- The test project lives inside this folder; keep its files out of the app. -->
+    <ItemGroup>
+      <Compile Remove="tests\**" />
+      <EmbeddedResource Remove="tests\**" />
+      <None Remove="tests\**" />
+      <Page Remove="tests\**" />
+    </ItemGroup>
+
+    <!-- Developer .env files are only read by Debug builds (App.xaml.cs) and never published. -->
+    <ItemGroup Condition="'$(Configuration)' == 'Debug'">
       <None Update=".env">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </None>

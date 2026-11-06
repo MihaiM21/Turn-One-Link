@@ -213,12 +213,11 @@ public class SessionManager
         _bestLapMs = 0;
         _phase = SessionPhase.Live;
 
-        // Force a fresh static read; emit session_start once we have it.
-        _staticPendingForNewSession = true;
+        // Emit session_start exactly once: now, from the cached static block if there is one,
+        // otherwise from the fresh static read requested below.
+        _staticPendingForNewSession = !_latestStatic.HasValue;
         StaticRefreshRequested?.Invoke();
 
-        // If we already have a static block cached, emit immediately so the backend
-        // doesn't have to wait. The pending flag will clear on the next OnStatic call.
         if (_latestStatic.HasValue)
         {
             var s = _latestStatic.Value;

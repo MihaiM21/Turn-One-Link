@@ -1,116 +1,45 @@
-# Environment Variables Setup
+# Configuration and environment variables
 
-## How It Works
+## How it works
 
-The Turn One Link application now automatically loads environment variables from `.env` files during startup. This is implemented using the **DotNetEnv** NuGet package.
+Production defaults are **compiled in** — an installed Turn One Link needs no configuration file.
+Settings can be overridden with environment variables, loaded at startup by `App.xaml.cs` with the
+**DotNetEnv** package, in this order (later wins):
 
-## Files
+1. OS environment variables.
+2. **Debug builds only:** `.env`, then `.env.local`, next to the exe (copied there from the project
+   folder on a Debug build). Both are gitignored and never published or installed.
+3. **Every build:** `%LOCALAPPDATA%\TurnOneLink\overrides.env` — per-user overrides that survive
+   updates. The "Local devices" port editor writes `LOCAL_WS_PORT` here.
 
-### `.env` (Committed to Git)
-This is the **primary environment configuration file** containing default values for all environment variables. It's safe to commit to version control and should be updated when configuration requirements change.
+Per-user state lives in `%LOCALAPPDATA%\TurnOneLink\` (`AppPaths.DataDir`): `settings.json`,
+`authstate.bin` (DPAPI), `sessions\`, `turnone_debug.log`, `overrides.env`. Nothing is written next
+to the exe, because the install folder is replaced on every update.
 
-**Current variables:**
-- `API_URL` - Backend API endpoint (defaults to production: `https://backend.t1f1.com/api`)
-- `USE_LOCAL_API` - Flag to use local API instead (set to `true` for local development)
-- `WEBSOCKET_PORT` - WebSocket server port (default: `8080`)
-- `LOG_LEVEL` - Logging level (default: `Information`)
-- `DEBUG_MODE` - Debug mode flag (default: `false`)
-- `CONNECTION_TIMEOUT_SECONDS` - HTTP timeout (default: `15`)
-- `CONNECTION_POLL_INTERVAL_MS` - Poll interval (default: `3000`)
-- `TELEMETRY_ENABLED` - Telemetry streaming (default: `true`)
-- `TELEMETRY_BUFFER_SIZE` - Buffer size for telemetry (default: `100`)
-- `SECURE_TOKEN_STORE_ENABLED` - Secure token storage (default: `true`)
-- `PROTOCOL_V1` - Cloud telemetry protocol version gate (default: `false`, meaning v2). `false`/unset streams the sim-neutral v2 `tick`/`lap_complete`/`session_start` frames (see `docs/telemetry/backend_contract_v2.md`) from every source (ACC, AC, iRacing). `true` falls back to the legacy v1 ACC-shaped `physics`/`graphics`/`static` cloud stream (`docs/telemetry/backend_contract.md`) — iRacing never spoke v1, so this flag effectively disables cloud streaming for it.
-- `STREAM_HZ` - v2 tick rate in Hz, applied by each adapter's rate limiter (default: `20`, hard-capped at `60` per the backend contract).
+## Variables the app reads
 
-### `.env.local` (Not Committed)
-This file is **optional** and **should not be committed** to git. Add it locally for development overrides. Any variables defined here will override values from `.env`.
+| Variable | Default | Purpose |
+|---|---|---|
+| `API_URL` | `https://backend.t1f1.com/api` | Backend REST base; the WSS URL is derived from it |
+| `USE_LOCAL_API` | `false` | `true` switches to `API_URL_LOCAL` |
+| `API_URL_LOCAL` | `http://localhost:5271/api` | Local backend for development |
+| `LOCAL_WS_PORT` (or `WEBSOCKET_PORT`) | `8080` | Port of the LAN server for phones |
+| `F1_UDP_PORT` | `20777` | EA F1 25/26 UDP listener |
+| `PROTOCOL_V1` | `false` | `true` falls back to the legacy v1 ACC-shaped cloud stream (`docs/telemetry/backend_contract.md`) |
+| `STREAM_HZ` | `20` | v2 tick rate, hard-capped at 60 |
+| `SENTRY_DSN` | baked in by CI | Overrides the crash-report DSN (empty = off) |
 
-**Example `.env.local` for local development:**
+Nothing else is read. Older docs listed `LOG_LEVEL`, `DEBUG_MODE`, `CONNECTION_*`, `TELEMETRY_*` and
+`SECURE_TOKEN_STORE_ENABLED`; those were never implemented.
+
+## Example `.env.local` for local development
+
 ```dotenv
 USE_LOCAL_API=true
-API_URL=http://localhost:5271/api
-DEBUG_MODE=true
-LOG_LEVEL=Debug
+API_URL_LOCAL=http://localhost:5271/api
 ```
 
-## Usage
+## Adding a variable
 
-### For End Users
-No action needed! The `.env` file is automatically loaded when the application starts.
-
-### For Developers
-
-1. **To override settings locally:**
-   - Create a `.env.local` file in the project root
-   - Add only the variables you want to override
-   - This file is ignored by git (add to `.gitignore` if not already there)
-
-2. **To add a new environment variable:**
-   - Add it to `.env` with a sensible default
-   - Add documentation above the variable explaining its purpose
-   - Access it in code using: `Environment.GetEnvironmentVariable("VARIABLE_NAME")`
-
-3. **Example: Reading an Environment Variable**
-   ```csharp
-   var apiUrl = Environment.GetEnvironmentVariable("API_URL") ?? "https://default-url.com";
-   ```
-
-## Loading Order
-
-The application loads environment variables in this order:
-1. System/Process environment variables (OS level)
-2. `.env` file (in the application's base directory)
-3. `.env.local` file (in the application's base directory, if it exists)
-
-Later values override earlier ones, so `.env.local` takes precedence over `.env`.
-
-## Integration Points
-
-### `AuthService.cs`
-Already uses `USE_LOCAL_API` and `API_URL`:
-```csharp
-if (Environment.GetEnvironmentVariable("USE_LOCAL_API") == "true")
-{
-    _apiBaseUrl = NormalizeBaseUrl(apiBaseUrl ?? Environment.GetEnvironmentVariable("API_URL"))
-                  ?? "http://localhost:5271/api";
-}
-```
-
-### App Startup (`App.xaml.cs`)
-The `.env` files are automatically loaded in `OnStartup()`:
-```csharp
-Env.Load(envPath);        // Loads .env
-Env.Load(envLocalPath);   // Loads .env.local (if exists)
-```
-
-## Troubleshooting
-
-**Q: The app isn't picking up my environment variables**
-- Ensure the `.env` file is in the application's working directory
-- For debug builds: `bin/Debug/net9.0-windows/`
-- For release builds: `bin/Release/net9.0-windows/`
-- Check that variables are correctly formatted: `KEY=value`
-
-**Q: My `.env.local` changes aren't being applied**
-- The app loads variables at startup. Restart the application to see changes.
-- Check that `.env.local` is in the same directory as `.env`
-
-**Q: Should I commit `.env.local`?**
-- **No!** Add it to `.gitignore` if it isn't already. It's for local development only.
-
-## Best Practices
-
-✅ **DO:**
-- Add new configuration to `.env` with sensible defaults
-- Use `.env.local` for personal development settings
-- Document each variable with a comment explaining its purpose
-- Use descriptive names: `API_URL` instead of `URL`, `LOG_LEVEL` instead of `LOG`
-
-❌ **DON'T:**
-- Commit `.env.local` to git
-- Store sensitive credentials in `.env` (use `.env.local` instead)
-- Use uppercase variables with spaces
-- Forget to add `=` between key and value
-
-| `F1_UDP_PORT` | `20777` | UDP port the F1 25/26 telemetry source listens on. Must match the game's UDP Telemetry settings (format 2025/2026, broadcast to this PC). |
+Read it with `Environment.GetEnvironmentVariable("NAME")`, give it a production-safe default in
+code, and add it to the table above.

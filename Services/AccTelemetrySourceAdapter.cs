@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Turn_One_Link.Services.AccTelemetry;
 using Turn_One_Link.Services.Telemetry;
 
@@ -45,15 +44,8 @@ public sealed class AccTelemetrySourceAdapter : ITelemetrySource
     private DateTime _lastTickEmittedAt = DateTime.MinValue;
     private string? _lastSessionInfoKey;
 
-    // ---- v2 state: in-progress lap sector/validity/pit tracking ----
-    private int _lastSectorIndex = -1;
-    private int _lapAtSectorTrackingStart = -1;
-    private readonly List<int> _sectorTimesBuffer = new();
-    private bool _lapValidLatch = true;
-    private bool _lapPitLatch;
-    private float? _lapStartFuel;
-
-    private const int AccNoTimeSentinel = 2147483647; // ACC's "no time recorded" value for iLastTime etc.
+    // ---- v2 state: lap timing (see AccLapTracker for why laps are cut on completedLaps) ----
+    private AccLapTracker? _lapTracker;
 
     public AccTelemetrySourceAdapter(string sourceName = "acc")
     {
@@ -67,7 +59,12 @@ public sealed class AccTelemetrySourceAdapter : ITelemetrySource
 
     public void Start() => _inner.Start();
     public void Stop() => _inner.Stop();
-    public void RequestStaticRefresh() => _inner.RequestStaticRefresh();
+    public void RequestStaticRefresh()
+    {
+        // A new session on the same track/car/type must still announce itself with session_start.
+        _lastSessionInfoKey = null;
+        _inner.RequestStaticRefresh();
+    }
     public void Dispose() => _inner.Dispose();
 
     // ── Raw shared-memory handlers ──────────────────────────────────────────────
@@ -160,7 +157,8 @@ public sealed class AccTelemetrySourceAdapter : ITelemetrySource
             TyreAgeLaps: null,
             TyreTemp: Corners(p.TyreCoreTemperature),
             TyrePress: Corners(p.WheelsPressure),
-            TyreWear: Corners(p.TyreWear),
+            // ACC leaves tyreWear at zero; omit it rather than report "no wear".
+            TyreWear: p.TyreWear is { Length: >= 4 } w && w.Any(x => x > 0) ? Corners(w) : null,
             BrakeTemp: Corners(p.BrakeTemp),
             Slip: Corners(p.WheelSlip),
             Frame: p.PacketId);
@@ -170,62 +168,35 @@ public sealed class AccTelemetrySourceAdapter : ITelemetrySource
 
     private void TrackSectorsAndLaps(SPageFileGraphic g)
     {
-        // AC lacks isValidLap; fall back to "4+ wheels off track this lap" as a latch, per
+        _lapTracker ??= new AccLapTracker(_lastStatic is { SectorCount: > 0 } st ? st.SectorCount : 3);
+
+        // AC lacks isValidLap; fall back to "4+ wheels off track" as the invalid signal, per
         // backend_contract_v2.md guidance for sims without a native validity flag.
-        bool tickInvalid = _sourceName == "ac"
+        bool frameInvalid = _sourceName == "ac"
             ? (_lastPhysics?.NumberOfTyresOut ?? 0) >= 4
             : g.IsValidLap == 0;
-        if (tickInvalid) _lapValidLatch = false;
-        if (g.IsInPit != 0 || g.IsInPitLane != 0) _lapPitLatch = true;
 
-        if (_lastSectorIndex < 0)
+        var lap = _lapTracker.Update(new AccLapSample(
+            CompletedLaps: g.CompletedLaps,
+            CurrentSectorIndex: g.CurrentSectorIndex,
+            CurrentLapMs: g.iCurrentTime,
+            LastLapMs: g.iLastTime,
+            FrameInvalid: frameInvalid,
+            InPit: g.IsInPit != 0 || g.IsInPitLane != 0,
+            Fuel: _lastPhysics?.Fuel));
+
+        if (lap is { } l)
         {
-            // First graphics frame seen — initialize tracking without emitting anything.
-            _lastSectorIndex = g.CurrentSectorIndex;
-            _lapAtSectorTrackingStart = g.CompletedLaps;
-            _lapStartFuel = _lastPhysics?.Fuel;
-            return;
+            LapCompleted?.Invoke(new T1LapComplete(
+                Lap: l.Lap,
+                LapTimeMs: l.LapTimeMs,
+                SectorsMs: l.SectorsMs,
+                Valid: l.Valid,
+                Pit: l.Pit,
+                LapDistM: LookupTrackLength(),
+                FuelUsedL: l.FuelUsedL,
+                TyreCompound: null));
         }
-
-        if (g.CurrentSectorIndex == _lastSectorIndex) return;
-
-        // Sector boundary crossed — ACC's LastSectorTime is the time of the sector that just ended.
-        _sectorTimesBuffer.Add(g.LastSectorTime);
-        _lastSectorIndex = g.CurrentSectorIndex;
-
-        bool lapJustCompleted = g.CompletedLaps > _lapAtSectorTrackingStart;
-        if (!lapJustCompleted) return;
-
-        EmitLapComplete(g, completedLapNumber: g.CompletedLaps);
-
-        // Reset for the new in-progress lap.
-        _sectorTimesBuffer.Clear();
-        _lapValidLatch = true;
-        _lapPitLatch = false;
-        _lapAtSectorTrackingStart = g.CompletedLaps;
-        _lapStartFuel = _lastPhysics?.Fuel;
-    }
-
-    private void EmitLapComplete(SPageFileGraphic g, int completedLapNumber)
-    {
-        if (g.iLastTime == AccNoTimeSentinel) return; // ACC has no timing for this lap; skip.
-
-        float? fuelUsed = null;
-        if (_lapStartFuel is { } startFuel && _lastPhysics is { } p)
-        {
-            var used = startFuel - p.Fuel;
-            if (used >= 0) fuelUsed = used;
-        }
-
-        LapCompleted?.Invoke(new T1LapComplete(
-            Lap: completedLapNumber,
-            LapTimeMs: g.iLastTime,
-            SectorsMs: _sectorTimesBuffer.ToArray(),
-            Valid: _lapValidLatch,
-            Pit: _lapPitLatch,
-            LapDistM: LookupTrackLength(),
-            FuelUsedL: fuelUsed,
-            TyreCompound: null));
     }
 
     // ── v2: session_start ────────────────────────────────────────────────────────────────
@@ -269,9 +240,14 @@ public sealed class AccTelemetrySourceAdapter : ITelemetrySource
 
     private static Coordinates? SafeCarCoordinates(SPageFileGraphic g)
     {
-        if (g.CarCoordinates is not { } coords) return null;
-        if (g.PlayerCarID < 0 || g.PlayerCarID >= coords.Length) return null;
-        return coords[g.PlayerCarID];
+        if (g.CarCoordinates is not { } coords || g.CarIDs is not { } ids) return null;
+        // PlayerCarID is a car id, not an index: find the slot that holds it.
+        int count = Math.Min(Math.Min(coords.Length, ids.Length), Math.Max(g.ActiveCars, 0));
+        for (int i = 0; i < count; i++)
+        {
+            if (ids[i] == g.PlayerCarID) return coords[i];
+        }
+        return null;
     }
 
     private static string PrettifyTrackName(string trackId)

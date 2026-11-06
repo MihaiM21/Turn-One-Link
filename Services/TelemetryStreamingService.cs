@@ -24,6 +24,8 @@ public class TelemetryStreamingService : IDisposable
 {
     private const int ChannelCapacity = 1000;
     private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan SendTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan DrainTimeout = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan KeepAliveInterval = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan MinBackoff = TimeSpan.FromSeconds(1);
@@ -32,7 +34,17 @@ public class TelemetryStreamingService : IDisposable
     private readonly string _wsUrl;
     private readonly AuthService _auth;
     private readonly Action<string>? _onLog;
+    // Ticks and raw frames: bounded, oldest dropped under backpressure.
     private readonly Channel<OutgoingMessage> _channel;
+    // session_* / lap_complete: never dropped, always sent before queued ticks.
+    private readonly Channel<OutgoingMessage> _control = Channel.CreateUnbounded<OutgoingMessage>(
+        new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
+    // The current session's session_start, re-sent first after every reconnect (the server may have
+    // swept the session or never seen it).
+    private string? _sessionStartJson;
+    // A control message whose send failed; retried first on the next connection.
+    private OutgoingMessage? _retry;
+    private Task? _stopTask;
     private readonly CancellationTokenSource _lifetimeCts = new();
     private readonly DateTimeOffset _startedAt = DateTimeOffset.UtcNow;
     private readonly string _clientVersion;
@@ -75,7 +87,7 @@ public class TelemetryStreamingService : IDisposable
         _onLog = onLog;
         // Bumped for cloud protocol v2 (tick/lap_complete/session_start) — see installer.iss
         // MyAppVersion, which must be kept in sync.
-        _clientVersion = "1.1.0";
+        _clientVersion = AppInfo.Version;
 
         var baseUrl = apiBaseUrl ?? Environment.GetEnvironmentVariable("API_URL") ?? "https://backend.t1f1.com/api";
         _wsUrl = baseUrl.Replace("https://", "wss://").Replace("http://", "ws://").TrimEnd('/') + "/ws/telemetry";
@@ -110,10 +122,22 @@ public class TelemetryStreamingService : IDisposable
         return Task.CompletedTask;
     }
 
-    public async Task StopAsync()
+    /// <summary>
+    /// Stops streaming. Queued messages (session_end above all) get <see cref="DrainTimeout"/>
+    /// to go out before the connection is cancelled. Safe to call more than once.
+    /// </summary>
+    public Task StopAsync() => _stopTask ??= StopCoreAsync();
+
+    private async Task StopCoreAsync()
     {
-        try { _lifetimeCts.Cancel(); } catch { }
+        _control.Writer.TryComplete();
         _channel.Writer.TryComplete();
+        if (_supervisorTask != null && _state == TelemetryConnectionState.Connected)
+        {
+            try { await _supervisorTask.WaitAsync(DrainTimeout); } catch { }
+        }
+
+        try { _lifetimeCts.Cancel(); } catch { }
         try
         {
             var ws = _webSocket;
@@ -171,7 +195,7 @@ public class TelemetryStreamingService : IDisposable
     {
         if (_activeSessionId == null) return;
 
-        EnqueueV2("session_start", new
+        _sessionStartJson = EnqueueV2("session_start", new
         {
             source = info.Source,
             simVersion = info.SimVersion,
@@ -186,7 +210,7 @@ public class TelemetryStreamingService : IDisposable
             driver = info.Driver,
             tickRateHz = info.TickRateHz,
             startedAt = _activeSessionStartedAt.ToUnixTimeMilliseconds()
-        }, _activeSessionId);
+        }, _activeSessionId, control: true);
     }
 
     /// <summary>v2 `session_end` — adds `lapsCompleted`/`bestLapMs` per backend_contract_v2.md §5.</summary>
@@ -197,24 +221,30 @@ public class TelemetryStreamingService : IDisposable
             endedAt = endedAt.ToUnixTimeMilliseconds(),
             lapsCompleted,
             bestLapMs
-        }, sessionId);
+        }, sessionId, control: true);
+        if (sessionId == _activeSessionId) _sessionStartJson = null;
     }
 
     public void EmitSessionPauseV2(string sessionId) => EnqueueV2("session_pause",
-        new { at = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }, sessionId);
+        new { at = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }, sessionId, control: true);
 
     public void EmitSessionResumeV2(string sessionId) => EnqueueV2("session_resume",
-        new { at = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }, sessionId);
+        new { at = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }, sessionId, control: true);
 
     /// <summary>v2 `tick` — sent at <see cref="TelemetryEnv.StreamHz"/>, dropped while paused.</summary>
     public void OnTick(T1TickFrame frame)
     {
-        if (!_streamTicksEnabled) return;
+        // Only a live session streams ticks (menus, replays and pauses don't: contract §1/§5).
+        if (!_streamTicksEnabled || _activeSessionId == null) return;
         EnqueueV2("tick", frame, _activeSessionId);
     }
 
     /// <summary>v2 `lap_complete` — enriches the lap the backend already cut on the `tick` `lap` increment.</summary>
-    public void OnLapComplete(T1LapComplete lap) => EnqueueV2("lap_complete", lap, _activeSessionId);
+    public void OnLapComplete(T1LapComplete lap)
+    {
+        if (_activeSessionId == null) return;
+        EnqueueV2("lap_complete", lap, _activeSessionId, control: true);
+    }
 
     public void EmitSessionEnd(SessionEndInfo info)
     {
@@ -282,7 +312,7 @@ public class TelemetryStreamingService : IDisposable
     /// <summary>Cloud protocol v2 envelope: <c>{ v: 2, type, timestamp, sessionId, data }</c>
     /// (backend_contract_v2.md §1), serialized with <see cref="V2JsonOptions"/> (camelCase,
     /// omit-null, T1Corners as an array).</summary>
-    private void EnqueueV2<T>(string type, T data, string? sessionId)
+    private string? EnqueueV2<T>(string type, T data, string? sessionId, bool control = false)
     {
         try
         {
@@ -305,11 +335,13 @@ public class TelemetryStreamingService : IDisposable
             }
 #endif
 
-            _channel.Writer.TryWrite(new OutgoingMessage(json));
+            (control ? _control : _channel).Writer.TryWrite(new OutgoingMessage(json, control));
+            return json;
         }
         catch (Exception ex)
         {
             _onLog?.Invoke($"Telemetry v2 serialize error: {ex.Message}");
+            return null;
         }
     }
 
@@ -371,6 +403,18 @@ public class TelemetryStreamingService : IDisposable
                     sessionCts.Cancel();
                     try { await recvTask.WaitAsync(TimeSpan.FromSeconds(2)); } catch { }
                 }
+
+                // Drained after StopAsync: close cleanly instead of reconnecting.
+                if (_control.Reader.Completion.IsCompleted && _channel.Reader.Completion.IsCompleted)
+                {
+                    try
+                    {
+                        using var closeCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                        await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Client stopped", closeCts.Token);
+                    }
+                    catch { }
+                    break;
+                }
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
@@ -399,7 +443,15 @@ public class TelemetryStreamingService : IDisposable
 
     private async Task PumpSendsAsync(ClientWebSocket ws, DateTime lastHeartbeat, CancellationToken token)
     {
-        var reader = _channel.Reader;
+        // After a reconnect: the failed control message first, then the session's session_start.
+        if (_retry is { } retry)
+        {
+            await SendAsync(ws, retry, token);
+            _retry = null;
+        }
+        if (_sessionStartJson is { } start)
+            await SendAsync(ws, new OutgoingMessage(start, Control: true), token);
+
         while (!token.IsCancellationRequested && ws.State == WebSocketState.Open)
         {
             // Heartbeat watchdog — if we've been idle, send a heartbeat
@@ -420,29 +472,46 @@ public class TelemetryStreamingService : IDisposable
                     EnqueueV2("client_heartbeat", heartbeatData, _activeSessionId);
             }
 
+            // Control messages always go first.
+            if (_control.Reader.TryRead(out var msg) || _channel.Reader.TryRead(out msg))
+            {
+                await SendAsync(ws, msg, token);
+                continue;
+            }
+
+            // Both queues closed and empty: StopAsync is draining and everything has gone out.
+            if (_control.Reader.Completion.IsCompleted && _channel.Reader.Completion.IsCompleted)
+                return;
+
             using var waitCts = CancellationTokenSource.CreateLinkedTokenSource(token);
             waitCts.CancelAfter(HeartbeatInterval);
-
-            OutgoingMessage msg;
             try
             {
-                msg = await reader.ReadAsync(waitCts.Token);
+                await Task.WhenAny(
+                    _control.Reader.WaitToReadAsync(waitCts.Token).AsTask(),
+                    _channel.Reader.WaitToReadAsync(waitCts.Token).AsTask());
             }
             catch (OperationCanceledException) when (!token.IsCancellationRequested)
             {
-                continue; // heartbeat tick
+                // heartbeat tick
             }
+        }
+    }
 
-            try
-            {
-                var bytes = Encoding.UTF8.GetBytes(msg.Json);
-                await ws.SendAsync(bytes, WebSocketMessageType.Text, true, token);
-            }
-            catch (Exception ex)
-            {
-                _onLog?.Invoke($"Telemetry send failed, will reconnect: {ex.Message}");
-                throw; // bubble up to supervisor for reconnect
-            }
+    private async Task SendAsync(ClientWebSocket ws, OutgoingMessage msg, CancellationToken token)
+    {
+        try
+        {
+            using var sendCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            sendCts.CancelAfter(SendTimeout);
+            var bytes = Encoding.UTF8.GetBytes(msg.Json);
+            await ws.SendAsync(bytes, WebSocketMessageType.Text, true, sendCts.Token);
+        }
+        catch (Exception ex)
+        {
+            if (msg.Control) _retry = msg; // ticks can be lost; session and lap messages can't
+            _onLog?.Invoke($"Telemetry send failed, will reconnect: {ex.Message}");
+            throw; // bubble up to supervisor for reconnect
         }
     }
 
@@ -490,11 +559,14 @@ public class TelemetryStreamingService : IDisposable
 
     public void Dispose()
     {
-        _devFileLogger?.Dispose();
-        _devFileLogger = null;
-        _ = StopAsync();
-        try { _lifetimeCts.Dispose(); } catch { }
+        // Dispose the token source only after StopAsync has finished with it.
+        _ = StopAsync().ContinueWith(_ =>
+        {
+            _devFileLogger?.Dispose();
+            _devFileLogger = null;
+            try { _lifetimeCts.Dispose(); } catch { }
+        }, TaskScheduler.Default);
     }
 
-    private readonly record struct OutgoingMessage(string Json);
+    private readonly record struct OutgoingMessage(string Json, bool Control = false);
 }

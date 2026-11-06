@@ -32,7 +32,7 @@ public class AuthService
         }
         else
         {
-            Console.WriteLine("Using DEV API endpoint.");
+            Console.WriteLine("Using production API endpoint.");
             _apiBaseUrl = NormalizeBaseUrl(apiBaseUrl ?? Environment.GetEnvironmentVariable("API_URL"))
                           ?? "https://backend.t1f1.com/api";
         }
@@ -72,6 +72,14 @@ public class AuthService
             _accessToken = stored.AccessToken;
             _accessTokenExpiresAt = stored.ExpiresAtUtc;
             ApplyAuthorizationHeader(_accessToken);
+
+            // The token may have been revoked (password change, signing-key rotation) before it
+            // expired. A definite 401 sends the user to sign in; being offline keeps the session.
+            if (await IsTokenRejectedByServerAsync())
+            {
+                Logout();
+                return (false, "Your session has ended. Please sign in again.");
+            }
             return (true, null);
         }
         catch
@@ -156,6 +164,18 @@ public class AuthService
         _accessTokenExpiresAt = null;
         ApplyAuthorizationHeader(null);
         SecureTokenStore.Clear();
+    }
+
+    private async Task<bool> IsTokenRejectedByServerAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_apiBaseUrl)) return false;
+        try
+        {
+            using var response = await HttpClient.GetAsync($"{_apiBaseUrl}/auth/me");
+            return response.StatusCode == HttpStatusCode.Unauthorized;
+        }
+        catch (HttpRequestException) { return false; }
+        catch (TaskCanceledException) { return false; }
     }
 
     private async Task<UserSession?> TryFetchCurrentUserAsync(string fallbackEmail, string fallbackDisplayName)

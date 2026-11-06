@@ -446,9 +446,9 @@
         </Border>
 
         <!-- Version -->
-        <TextBlock Grid.Row="11" HorizontalAlignment="Center"
+        <TextBlock x:Name="VersionLabel" Grid.Row="11" HorizontalAlignment="Center"
                    Margin="0,8,0,0"
-                   Text="v0.0.1" FontFamily="Segoe UI" FontSize="10"
+                   Text="v0.0.0" FontFamily="Segoe UI" FontSize="10"
                    Foreground="#33FFFFFF"/>
         <!-- Settings overlay (spans all rows, shown on gear-button click) -->
         <Grid x:Name="SettingsOverlay"
@@ -586,6 +586,29 @@
                                        Margin="0,3,0,0" TextWrapping="Wrap"/>
                         </StackPanel>
                         <CheckBox x:Name="EnableSessionLoggingToggle"
+                                  Grid.Column="1"
+                                  Style="{StaticResource ToggleSwitch}"
+                                  VerticalAlignment="Center"
+                                  Checked="SettingsToggle_Changed"
+                                  Unchecked="SettingsToggle_Changed"/>
+                    </Grid>
+
+                    <!-- Toggle: Crash Reports -->
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+                            <TextBlock Text="Crash Reports"
+                                       FontFamily="Segoe UI" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="White"/>
+                            <TextBlock Text="Send anonymous crash reports (applies after restart)"
+                                       FontFamily="Segoe UI" FontSize="10"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       Margin="0,3,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <CheckBox x:Name="SendCrashReportsToggle"
                                   Grid.Column="1"
                                   Style="{StaticResource ToggleSwitch}"
                                   VerticalAlignment="Center"

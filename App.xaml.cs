@@ -22,30 +22,28 @@ public partial class App : Application
         }
         catch { }
 
-        // Load environment variables from .env file
+        // Production defaults are compiled in. Debug builds also read .env / .env.local next to
+        // the exe (developer settings); every build reads the per-user overrides file last.
         try
         {
-            var envPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".env");
-            if (File.Exists(envPath))
+#if DEBUG
+            foreach (var name in new[] { ".env", ".env.local" })
             {
-                Env.Load(envPath);
-                System.Diagnostics.Debug.WriteLine("Environment variables loaded from .env file");
+                var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, name);
+                if (File.Exists(path)) Env.Load(path);
             }
-
-            // Also try to load .env.local for local overrides
-            var envLocalPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".env.local");
-            if (File.Exists(envLocalPath))
-            {
-                Env.Load(envLocalPath);
-                System.Diagnostics.Debug.WriteLine("Environment variables loaded from .env.local file");
-            }
+#endif
+            if (File.Exists(Services.AppPaths.OverridesEnv))
+                Env.Load(Services.AppPaths.OverridesEnv);
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Failed to load .env file: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Failed to load environment overrides: {ex.Message}");
         }
 
         base.OnStartup(e);
+
+        DispatcherUnhandledException += (_, args) => CrashReporting.Capture(args.Exception);
 
         _trayIcon = new System.Windows.Forms.NotifyIcon
         {

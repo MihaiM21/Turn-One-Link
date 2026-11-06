@@ -47,8 +47,9 @@ Desktop.ini
 # Publish output
 publish
 publish_framework
+Releases/
+# Superseded by Velopack (build_installer.ps1); kept out of git
 installer.iss
-build_installer.ps1
 
 # AI
 CLAUDE.md
