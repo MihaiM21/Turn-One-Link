@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | approved (owner, 2026-11-06) |
+| **Status** | on dev (2026-11-07) |
 | **Requested by** | turn-one-link — LF-01, HF-06, lap validity "client" rule |
 | **Needed by** | Phase 0–1 |
 | **Breaking?** | **No — additive only.** `GET api/simracing/link/release` keeps its response; new optional fields and a new route. |
@@ -47,4 +47,4 @@ Download page reads the same fields; new fields are ignored until the page uses 
 Config-driven; rollback = revert config.
 
 ## Implementation notes
-_(Hub-side session fills this in.)_
+- Merged to `dev` via MihaiM21/Turn-One#142: channels, `minSupportedVersion`, `velopackFeedUrl`, `GET compat`. Link checks `compat` at startup (MihaiM21/Turn-One-Link#5) and pauses uploads when told to.

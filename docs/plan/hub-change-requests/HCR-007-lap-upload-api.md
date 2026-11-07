@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | approved (owner, 2026-11-06) |
+| **Status** | on dev (2026-11-07) |
 | **Requested by** | turn-one-link — LF-11, LF-12, HF-02 (decision D3) |
 | **Needed by** | Phase 1 (closed beta) |
 | **Breaking?** | **No — additive only.** Live WSS ingestion keeps working unchanged. |
@@ -58,4 +58,5 @@ Deploy; Link enables upload in a beta build while still streaming live (both pat
 Link reverts to WSS-only by config.
 
 ## Implementation notes
-_(Hub-side session fills this in.)_
+- Merged to `dev` via MihaiM21/Turn-One#143/#145: `UploadsController`, `LapUploadService`, `LapUploadParser`, `LapUploads` table. Uploaded laps go through the live `LapProcessor`; a lap already processed from the live stream is kept (`duplicate`). Builds below `TurnOneLink:MinUploadVersion` get `426` (follow-up PR).
+- Link: `LapRecorder` + `UploadQueue` (MihaiM21/Turn-One-Link#6/#7).

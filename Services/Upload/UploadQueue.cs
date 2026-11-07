@@ -121,6 +121,10 @@ public sealed class UploadQueue : IDisposable
                     break;
                 case 401:
                     return DrainResult.Stop;
+                case 426:
+                    // The Hub refuses this build's laps (known bug fixed in a newer version): keep them for after the update.
+                    _log?.Invoke("[UPLOAD] Update Turn One Link to keep uploading — your laps are kept until then.");
+                    return DrainResult.Stop;
                 default:
                     SessionStateChanged?.Invoke(sessionId, UploadState.Failed, sent(), laps.Count);
                     return DrainResult.Stop; // offline / server trouble: retry the whole pass later

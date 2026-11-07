@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | in progress (owner, 2026-11-06) |
+| **Status** | on dev (2026-11-07) |
 | **Requested by** | turn-one-link — LF-10, HF-01 |
 | **Needed by** | Phase 1 (closed beta, Jan 2027) |
 | **Breaking?** | **No — additive only.** Builds on HCR-003; website login unchanged. |

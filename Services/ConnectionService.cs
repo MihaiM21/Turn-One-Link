@@ -34,6 +34,15 @@ public class ConnectionService : IDisposable
         new("F1 23", ["F12023", "F1_23"]),
     ];
 
+    /// <summary>Shown when F1 telemetry arrives over the network from a PlayStation / Xbox (D15).</summary>
+    public const string F1ConsoleGameName = "F1 (PlayStation / Xbox)";
+
+    /// <summary>
+    /// F1 on a console sends UDP to this PC with no game process here, so it can't be detected; in this
+    /// mode the F1 listener runs whenever no PC sim is found and the health check reports whether packets arrive.
+    /// </summary>
+    public bool F1ConsoleMode { get; set; }
+
     private static readonly string DebugLogPath = Path.Combine(AppPaths.DataDir, "turnone_debug.log");
 
     private readonly System.Timers.Timer _timer;
@@ -92,7 +101,7 @@ public class ConnectionService : IDisposable
         catch (UnauthorizedAccessException) { }
     }
 
-    private static SimConnectionState DetectSim()
+    private SimConnectionState DetectSim()
     {
         foreach (var sim in KnownSims)
         {
@@ -102,7 +111,9 @@ public class ConnectionService : IDisposable
                     return new SimConnectionState(SimStatus.Connected, sim.GameName);
             }
         }
-        return new SimConnectionState(SimStatus.Disconnected, null);
+        return F1ConsoleMode
+            ? new SimConnectionState(SimStatus.Connected, F1ConsoleGameName)
+            : new SimConnectionState(SimStatus.Disconnected, null);
     }
 
     private static bool IsRunning(string processName)

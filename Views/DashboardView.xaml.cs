@@ -39,28 +39,33 @@ public partial class DashboardView : UserControl
         ShowLocalWsToggle.Checked           -= SettingsToggle_Changed;
         EnableSessionLoggingToggle.Checked   -= SettingsToggle_Changed;
         SendCrashReportsToggle.Checked       -= SettingsToggle_Changed;
+        F1ConsoleToggle.Checked              -= SettingsToggle_Changed;
         ShowTelemetryToggle.Unchecked       -= SettingsToggle_Changed;
         ShowConsoleToggle.Unchecked         -= SettingsToggle_Changed;
         ShowLocalWsToggle.Unchecked         -= SettingsToggle_Changed;
         EnableSessionLoggingToggle.Unchecked -= SettingsToggle_Changed;
         SendCrashReportsToggle.Unchecked     -= SettingsToggle_Changed;
+        F1ConsoleToggle.Unchecked            -= SettingsToggle_Changed;
 
         ShowTelemetryToggle.IsChecked        = _settings.ShowLiveTelemetry;
         ShowConsoleToggle.IsChecked          = _settings.ShowConsole;
         ShowLocalWsToggle.IsChecked          = _settings.ShowLocalWsInfo;
         EnableSessionLoggingToggle.IsChecked = _settings.EnableSessionLogging;
         SendCrashReportsToggle.IsChecked     = _settings.SendCrashReports;
+        F1ConsoleToggle.IsChecked            = _settings.F1ConsoleMode;
 
         ShowTelemetryToggle.Checked         += SettingsToggle_Changed;
         ShowConsoleToggle.Checked           += SettingsToggle_Changed;
         ShowLocalWsToggle.Checked           += SettingsToggle_Changed;
         EnableSessionLoggingToggle.Checked   += SettingsToggle_Changed;
         SendCrashReportsToggle.Checked       += SettingsToggle_Changed;
+        F1ConsoleToggle.Checked              += SettingsToggle_Changed;
         ShowTelemetryToggle.Unchecked       += SettingsToggle_Changed;
         ShowConsoleToggle.Unchecked         += SettingsToggle_Changed;
         ShowLocalWsToggle.Unchecked         += SettingsToggle_Changed;
         EnableSessionLoggingToggle.Unchecked += SettingsToggle_Changed;
         SendCrashReportsToggle.Unchecked     += SettingsToggle_Changed;
+        F1ConsoleToggle.Unchecked            += SettingsToggle_Changed;
 
         VersionLabel.Text = $"v{AppInfo.Version}";
         ApplySettings();
@@ -72,6 +77,21 @@ public partial class DashboardView : UserControl
     }
 
     // ── Sim Status ────────────────────────────────────────────────────────────
+
+    /// <summary>F1 console mode turned on or off in settings.</summary>
+    public event Action<bool>? F1ConsoleModeChanged;
+
+    public bool F1ConsoleMode => _settings.F1ConsoleMode;
+
+    /// <summary>Shows why no telemetry is arriving (null hides the hint).</summary>
+    public void SetTelemetryHealth(string? hint)
+    {
+        var visible = !string.IsNullOrEmpty(hint);
+        if (visible) SimHealthText.Text = hint;
+        if ((SimHealthText.Visibility == Visibility.Visible) == visible) return;
+        SimHealthText.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        DesiredHeightChanged?.Invoke(CalculateDesiredHeight());
+    }
 
     public void ApplySimStatus(SimStatus status, string? gameName)
     {
@@ -255,7 +275,10 @@ public partial class DashboardView : UserControl
         _settings.ShowLocalWsInfo       = ShowLocalWsToggle.IsChecked          == true;
         _settings.EnableSessionLogging  = EnableSessionLoggingToggle.IsChecked == true;
         _settings.SendCrashReports      = SendCrashReportsToggle.IsChecked     == true;
+        var consoleChanged = _settings.F1ConsoleMode != (F1ConsoleToggle.IsChecked == true);
+        _settings.F1ConsoleMode         = F1ConsoleToggle.IsChecked            == true;
         _settings.Save();
+        if (consoleChanged) F1ConsoleModeChanged?.Invoke(_settings.F1ConsoleMode);
         ApplySettings();
     }
 
@@ -302,6 +325,7 @@ public partial class DashboardView : UserControl
         const double Base = 300;
 
         double h = Base;
+        if (SimHealthText.Visibility == Visibility.Visible)    h += 34;  // health hint (two lines)
         if (_settings.ShowLocalWsInfo)                          h += 118; // Local WS card
         if (_settings.ShowLiveTelemetry && _simIsStreaming)     h += 156; // Live Telemetry panel
         if (_settings.ShowConsole)                              h += 172; // Console (MinHeight=160 + margins)
