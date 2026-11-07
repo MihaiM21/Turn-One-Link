@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     private readonly SessionLoggingService _sessionLogger = new();
     private readonly Services.Upload.LapRecorder _recorder;
     private readonly Services.Upload.UploadQueue _uploads;
+    private readonly Services.Upload.SessionHistory _history = new(Services.Upload.SessionHistory.DefaultPath);
     private UpdateService? _updates;
     private CancellationTokenSource? _pairingCts;
     // Telemetry health check (LF-16)
@@ -59,6 +60,8 @@ public partial class MainWindow : Window
             uploadsAllowed: () => _updates?.UploadsAccepted ?? true,
             log: msg => _dashboardView?.AddConsoleLog(msg));
         _recorder.OutboxChanged += _ => _uploads.Kick();
+        _history.Changed += () => Dispatcher.InvokeAsync(RefreshSessions);
+        _uploads.SessionStateChanged += (id, state, _, _) => _history.UploadChanged(id, state);
         _uploads.SessionStateChanged += (id, state, sent, waiting) =>
             _dashboardView?.AddConsoleLog(state switch
             {
@@ -234,6 +237,8 @@ public partial class MainWindow : Window
             Dispatcher.Invoke(() => AnimateWindowHeight(contentHeight + ChromeOverhead));
 
         MainContent.Content = _dashboardView;
+        RefreshSessions();
+        if (!_dashboardView.LiveStreaming) _dashboardView.ShowLiveOff();
         _connection.F1ConsoleMode = _dashboardView.F1ConsoleMode;
         _dashboardView.F1ConsoleModeChanged += on =>
         {
@@ -372,6 +377,30 @@ public partial class MainWindow : Window
         _loginView?.ShowPairingStart();
     }
 
+    private static readonly System.Windows.Media.SolidColorBrush UploadedBrush = new(System.Windows.Media.Color.FromRgb(0x22, 0xC5, 0x5E));
+    private static readonly System.Windows.Media.SolidColorBrush PendingBrush = new(System.Windows.Media.Color.FromRgb(0xFF, 0xC1, 0x4B));
+    private static readonly System.Windows.Media.SolidColorBrush FailedBrush = new(System.Windows.Media.Color.FromRgb(0xEF, 0x44, 0x44));
+
+    private void RefreshSessions()
+    {
+        if (_dashboardView == null) return;
+        var rows = _history.Entries.Select(e =>
+        {
+            var (state, brush) = e.Upload switch
+            {
+                Services.Upload.UploadState.Uploaded => ("Uploaded", UploadedBrush),
+                Services.Upload.UploadState.Failed => ("Waiting for network", FailedBrush),
+                Services.Upload.UploadState.Uploading => ("Uploading…", PendingBrush),
+                _ => (e.Ended ? "Waiting" : "Recording", PendingBrush),
+            };
+            var best = e.BestLapMs is { } ms ? $" · {ms / 60000}:{ms % 60000 / 1000:00}.{ms % 1000:000}" : "";
+            var title = $"{(string.IsNullOrWhiteSpace(e.Track) ? e.Sim : e.Track)} · {e.Laps} laps{best}";
+            return new Views.DashboardView.SessionRow(title, state, brush,
+                new Uri($"https://turnonehub.com/simracing/sessions/{e.SessionId}"));
+        }).ToList();
+        _dashboardView.SetSessions(rows);
+    }
+
     private int F1Port() =>
         (_telemetry as Turn_One_Link.Services.F1.F1UdpTelemetrySource)?.Port
         ?? (int.TryParse(Environment.GetEnvironmentVariable("F1_UDP_PORT"), out var p) ? p : 20777);
@@ -478,7 +507,19 @@ public partial class MainWindow : Window
         WireStreamingState(_streaming);
         WireTelemetryEvents(_streaming, source);
 
-        _ = _streaming.StartAsync();
+        // Live streaming is opt-in (LF-14); recording and upload run either way. A stopped streaming
+        // service drops whatever is handed to it, so the wiring above stays the same.
+        if (_dashboardView?.LiveStreaming == true)
+        {
+            _ = _streaming.StartAsync();
+        }
+        else
+        {
+            _ = _streaming.StopAsync();
+            _serverConnected = true;
+            UpdateAccentMark();
+            _dashboardView?.ShowLiveOff();
+        }
         source.Start();
     }
 
@@ -501,6 +542,7 @@ public partial class MainWindow : Window
 
         void OnSessionStarted(SessionInfo info)
         {
+            _history.Started(info.SessionId, _activeSourceName, info.Track, info.CarModel);
             _deltaEngine.Reset();
             _fuelManager.Reset();
             _sessionLogger.OnSessionStarted(info);
@@ -513,6 +555,7 @@ public partial class MainWindow : Window
         }
         void OnSessionEnded(SessionEndInfo info)
         {
+            _history.Ended(info.SessionId);
             _deltaEngine.Reset();
             _fuelManager.Reset();
             _sessionLogger.OnSessionEnded(info);
@@ -600,6 +643,10 @@ public partial class MainWindow : Window
         telemetry.LapCompleted   += streaming.OnLapComplete;
         telemetry.TickUpdated    += _recorder.OnTick;
         telemetry.TickUpdated    += _ => _lastTickAt = DateTime.UtcNow;
+        telemetry.LapCompleted   += lap =>
+        {
+            if (_sessionManager.ActiveSessionId is { } id) _history.LapCompleted(id, lap.Lap, lap.LapTimeMs, lap.Valid == true);
+        };
         telemetry.LapCompleted   += _recorder.OnLapComplete;
 
         // Legacy v1 cloud stream speaks ACC's raw shared-memory struct shape (see

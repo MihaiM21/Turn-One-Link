@@ -117,6 +117,7 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="4"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0" Grid.Column="0"
@@ -148,6 +149,32 @@
                            Text="Connected"
                            FontFamily="Segoe UI" FontSize="14" FontWeight="SemiBold"
                            Foreground="White"/>
+
+                <!-- Recent sessions and their upload state (LF-13) -->
+                <ItemsControl x:Name="SessionList" Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                              Margin="0,8,0,0" Visibility="Collapsed">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{Binding Title}" TextTrimming="CharacterEllipsis"
+                                           FontFamily="Segoe UI" FontSize="11" Foreground="White"/>
+                                <TextBlock Grid.Column="1" Text="{Binding State}" Margin="8,0"
+                                           FontFamily="Segoe UI" FontSize="11" Foreground="{Binding StateBrush}"/>
+                                <TextBlock Grid.Column="2">
+                                    <Hyperlink NavigateUri="{Binding WebUrl}" RequestNavigate="SessionLink_RequestNavigate"
+                                               Foreground="{StaticResource TextSecondaryBrush}" TextDecorations="None">
+                                        <Run Text="Open" FontFamily="Segoe UI" FontSize="11"/>
+                                    </Hyperlink>
+                                </TextBlock>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
             </Grid>
         </Border>
 
@@ -617,6 +644,29 @@
                                        Margin="0,3,0,0" TextWrapping="Wrap"/>
                         </StackPanel>
                         <CheckBox x:Name="EnableSessionLoggingToggle"
+                                  Grid.Column="1"
+                                  Style="{StaticResource ToggleSwitch}"
+                                  VerticalAlignment="Center"
+                                  Checked="SettingsToggle_Changed"
+                                  Unchecked="SettingsToggle_Changed"/>
+                    </Grid>
+
+                    <!-- Toggle: Live streaming (LF-14) -->
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+                            <TextBlock Text="Live streaming"
+                                       FontFamily="Segoe UI" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="White"/>
+                            <TextBlock Text="Stream while you drive, for spectators and OBS overlays (from the next session). Laps upload either way."
+                                       FontFamily="Segoe UI" FontSize="10"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       Margin="0,3,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <CheckBox x:Name="LiveStreamingToggle"
                                   Grid.Column="1"
                                   Style="{StaticResource ToggleSwitch}"
                                   VerticalAlignment="Center"

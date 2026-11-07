@@ -42,6 +42,13 @@ public sealed class AppSettings
     [JsonPropertyName("enableSessionLogging")]
     public bool EnableSessionLogging { get; set; } = true;
 
+    /// <summary>
+    /// Stream telemetry live while driving (spectators, OBS overlays). Laps are recorded and uploaded
+    /// regardless (plan D3), so this is off by default.
+    /// </summary>
+    [JsonPropertyName("liveStreaming")]
+    public bool LiveStreaming { get; set; } = false;
+
     /// <summary>F1 25/26 on PlayStation / Xbox: listen for its UDP telemetry without a game on this PC. Default: off.</summary>
     [JsonPropertyName("f1ConsoleMode")]
     public bool F1ConsoleMode { get; set; } = false;
