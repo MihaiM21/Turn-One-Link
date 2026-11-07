@@ -25,6 +25,8 @@ public partial class MainWindow : Window
     private readonly DeltaEngine _deltaEngine = new();
     private readonly FuelManager _fuelManager = new();
     private readonly SessionLoggingService _sessionLogger = new();
+    private readonly Services.Upload.LapRecorder _recorder;
+    private readonly Services.Upload.UploadQueue _uploads;
     private UpdateService? _updates;
     private CancellationTokenSource? _pairingCts;
     private PairingCode? _pairingCode;
@@ -43,6 +45,21 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         Loaded += OnWindowLoaded;
+
+        // Local-first (D3): every lap is written to the outbox and uploaded from there, so a dropped
+        // connection or a closed app never loses it.
+        var outbox = Services.Upload.LapRecorder.DefaultOutboxDir;
+        _recorder = new Services.Upload.LapRecorder(outbox, msg => _dashboardView?.AddConsoleLog(msg));
+        _uploads = new Services.Upload.UploadQueue(outbox, _auth, log: msg => _dashboardView?.AddConsoleLog(msg));
+        _recorder.OutboxChanged += _ => _uploads.Kick();
+        _uploads.SessionStateChanged += (id, state, sent, waiting) =>
+            _dashboardView?.AddConsoleLog(state switch
+            {
+                Services.Upload.UploadState.Uploaded => $"[UPLOAD] Session {id[..8]}: all {sent} laps uploaded.",
+                Services.Upload.UploadState.Failed => $"[UPLOAD] Session {id[..8]}: offline — {waiting} laps waiting, will retry.",
+                _ => $"[UPLOAD] Session {id[..8]}: {sent} uploaded, {waiting} waiting.",
+            });
+        _uploads.Start();
         // Subscribed once for the window's lifetime (not per sign-in, which stacked handlers).
         _connection.SimStatusChanged += OnSimStatusChanged;
     }
@@ -80,7 +97,10 @@ public partial class MainWindow : Window
 
         var (restored, error) = await _auth.TryRestoreSessionAsync();
         if (restored)
+        {
             ShowDashboard();
+            _uploads.Kick(); // send whatever an earlier run left in the outbox
+        }
         else
             ShowLogin(error);
     }
@@ -89,6 +109,7 @@ public partial class MainWindow : Window
     {
         _isExiting = true;
         _updates?.Dispose();
+        _uploads.Dispose(); // anything not sent stays in the outbox for the next launch
         _connection.Dispose();
 
         // Close an open session and give its session_end a moment to reach the server.
@@ -267,7 +288,10 @@ public partial class MainWindow : Window
         _loginView.SetLoading(false);
 
         if (success)
+        {
             ShowDashboard();
+            _uploads.Kick();
+        }
         else
             _loginView.ShowError(error ?? "Login failed.");
     }
@@ -304,6 +328,7 @@ public partial class MainWindow : Window
                 case PairingPollStatus.Approved:
                     _pairingCode = null;
                     ShowDashboard();
+                    _uploads.Kick();
                     return;
                 case PairingPollStatus.Expired:
                     _pairingCode = null;
@@ -443,6 +468,7 @@ public partial class MainWindow : Window
             _deltaEngine.Reset();
             _fuelManager.Reset();
             _sessionLogger.OnSessionStarted(info);
+            _recorder.OnSessionStarted(info.SessionId);
             streaming.SetActiveSession(info.SessionId);
             // v1 session_start (ACC-shaped) only goes out under PROTOCOL_V1; the v2 shape is
             // emitted separately from SessionInfoReadyV2 once the richer T1SessionInfo arrives.
@@ -454,6 +480,7 @@ public partial class MainWindow : Window
             _deltaEngine.Reset();
             _fuelManager.Reset();
             _sessionLogger.OnSessionEnded(info);
+            _recorder.OnSessionEnded(info.SessionId, info.EndedAt, info.CompletedLaps, info.BestLapMs);
             if (TelemetryEnv.ProtocolV1Enabled)
                 streaming.EmitSessionEnd(info);
             else
@@ -494,6 +521,7 @@ public partial class MainWindow : Window
         {
             if (TelemetryEnv.ProtocolV1Enabled) return;
             streaming.OnSessionInfo(info);
+            _recorder.OnSessionInfo(info);
             _dashboardView?.AddConsoleLog($"[SESSION] v2 info: {info.Source} {info.TrackId} ({info.CarId}) {info.SessionType}");
         }
     }
@@ -534,6 +562,8 @@ public partial class MainWindow : Window
         // tick/lap_complete stream to the backend the same way, sim-neutral.
         telemetry.TickUpdated    += streaming.OnTick;
         telemetry.LapCompleted   += streaming.OnLapComplete;
+        telemetry.TickUpdated    += _recorder.OnTick;
+        telemetry.LapCompleted   += _recorder.OnLapComplete;
 
         // Legacy v1 cloud stream speaks ACC's raw shared-memory struct shape (see
         // docs/telemetry/backend_contract.md). Only wired when PROTOCOL_V1=true; v2 is the

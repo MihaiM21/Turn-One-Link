@@ -67,15 +67,6 @@ public class TelemetryStreamingService : IDisposable
         Converters = { new JsonStringEnumConverter() }
     };
 
-    // Cloud protocol v2 (docs/telemetry/backend_contract_v2.md): tick/lap_complete/
-    // session_start are flat, camelCase, omit-null-optionals, with T1Corners as [fl,fr,rl,rr].
-    private static readonly JsonSerializerOptions V2JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        Converters = { new T1CornersJsonConverter() }
-    };
-
     public event Action<TelemetryConnectionState>? ConnectionStateChanged;
     public event Action? ReauthRequired;
 
@@ -195,22 +186,8 @@ public class TelemetryStreamingService : IDisposable
     {
         if (_activeSessionId == null) return;
 
-        _sessionStartJson = EnqueueV2("session_start", new
-        {
-            source = info.Source,
-            simVersion = info.SimVersion,
-            trackId = info.TrackId,
-            trackName = info.TrackName,
-            trackLengthM = info.TrackLengthM,
-            sectorCount = info.SectorCount,
-            sectorBoundariesM = info.SectorBoundariesM,
-            car = new { id = info.CarId, name = info.CarName, @class = info.CarClass },
-            sessionType = T1Wire.SessionTypeName(info.SessionType),
-            sessionTypeRaw = info.SessionTypeRaw,
-            driver = info.Driver,
-            tickRateHz = info.TickRateHz,
-            startedAt = _activeSessionStartedAt.ToUnixTimeMilliseconds()
-        }, _activeSessionId, control: true);
+        _sessionStartJson = EnqueueV2("session_start", V2Envelope.SessionStartData(info, _activeSessionStartedAt),
+            _activeSessionId, control: true);
     }
 
     /// <summary>v2 `session_end` — adds `lapsCompleted`/`bestLapMs` per backend_contract_v2.md §5.</summary>
@@ -310,20 +287,12 @@ public class TelemetryStreamingService : IDisposable
     }
 
     /// <summary>Cloud protocol v2 envelope: <c>{ v: 2, type, timestamp, sessionId, data }</c>
-    /// (backend_contract_v2.md §1), serialized with <see cref="V2JsonOptions"/> (camelCase,
-    /// omit-null, T1Corners as an array).</summary>
+    /// (backend_contract_v2.md §1), serialized by <see cref="V2Envelope"/>.</summary>
     private string? EnqueueV2<T>(string type, T data, string? sessionId, bool control = false)
     {
         try
         {
-            var json = JsonSerializer.Serialize(new
-            {
-                v = 2,
-                type,
-                timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                sessionId,
-                data
-            }, V2JsonOptions);
+            var json = V2Envelope.Serialize(type, data, sessionId);
 
 #if DEBUG
             if (_devFileLogger != null)
