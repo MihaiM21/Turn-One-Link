@@ -359,6 +359,42 @@ public partial class DashboardView : UserControl
         ApplySettings();
     }
 
+    /// <summary>Extra lines for diagnostics.txt (sim and connection state), set by MainWindow.</summary>
+    public Func<string>? DiagnosticsInfo { get; set; }
+
+    private void ReportProblemButton_Click(object sender, RoutedEventArgs e)
+    {
+        var choice = System.Windows.MessageBox.Show(
+            "Turn One Link will save a zip with its log, settings, recent-session list and version. " +
+            "Your sign-in is never included.\n\n" +
+            $"Also include the laps of your last {DiagnosticsBundle.MaxSessions} sessions? " +
+            "They help with lap-timing problems.",
+            "Report a problem",
+            MessageBoxButton.YesNoCancel,
+            MessageBoxImage.Question);
+        if (choice == MessageBoxResult.Cancel) return;
+
+        try
+        {
+            string? extra = null;
+            try { extra = DiagnosticsInfo?.Invoke(); } catch { /* state is a nice-to-have */ }
+
+            var target = Path.Combine(AppPaths.DataDir, "reports");
+            var zip = DiagnosticsBundle.Create(AppPaths.DataDir, target, choice == MessageBoxResult.Yes, extra);
+            AddConsoleLog($"[REPORT] Saved {Path.GetFileName(zip)}");
+            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{zip}\"");
+            System.Windows.MessageBox.Show(
+                "The report is selected in the folder that just opened.\n\n" +
+                "Attach it to your message in the Turn One Discord (#link-beta) with a line on what happened.",
+                "Report saved", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show($"Couldn't build the report: {ex.Message}",
+                "Report a problem", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     private void OpenSessionsFolderButton_Click(object sender, RoutedEventArgs e)
     {
         var sessionsDir = Path.Combine(

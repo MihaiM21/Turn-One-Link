@@ -727,6 +727,15 @@
                             FontSize="11"
                             Click="OpenSessionsFolderButton_Click"/>
 
+                    <Button x:Name="ReportProblemButton"
+                            Style="{StaticResource GhostButton}"
+                            Content="Report a problem"
+                            HorizontalAlignment="Left"
+                            FontSize="11"
+                            Margin="0,6,0,0"
+                            ToolTip="Builds a zip with the log, settings and app version (never your sign-in) to attach to a bug report"
+                            Click="ReportProblemButton_Click"/>
+
                 </StackPanel>
             </Border>
         </Grid>

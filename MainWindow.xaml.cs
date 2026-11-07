@@ -229,6 +229,12 @@ public partial class MainWindow : Window
         _dashboardView.SetUser(_auth.CurrentSession!.DisplayName);
         _dashboardView.SignOutRequested += OnSignOut;
         _dashboardView.PortChangeRequested += OnPortChangeRequested;
+        _dashboardView.DiagnosticsInfo = () => string.Join(Environment.NewLine,
+            $"Sim: {(_simConnected ? _simGame ?? "connected" : "not detected")} (source {_activeSourceName})",
+            $"Last telemetry: {(_lastTickAt is { } t ? $"{(DateTime.UtcNow - t).TotalSeconds:0}s ago" : "never")}",
+            $"Hub stream: {(_serverConnected ? "connected" : "not connected")}, telemetry active: {_telemetryActive}",
+            $"F1 console mode: {_connection.F1ConsoleMode}, F1 UDP port: {F1Port()}",
+            $"Live streaming: {_dashboardView?.LiveStreaming}");
 
         // Start local WebSocket server
         StartLocalServer();
