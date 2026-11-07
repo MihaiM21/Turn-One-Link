@@ -354,8 +354,8 @@ public class TelemetryStreamingService : IDisposable
 
         while (!token.IsCancellationRequested)
         {
-            // Refresh / validate token before each connect attempt
-            if (_auth.IsTokenExpired(toleranceSeconds: 60))
+            // Renew (paired device) or validate (password login) the token before each connect attempt
+            if (!await _auth.EnsureFreshTokenAsync())
             {
                 _onLog?.Invoke("Telemetry: access token expired, requesting re-auth.");
                 ReauthRequired?.Invoke();

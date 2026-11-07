@@ -49,28 +49,72 @@
                            Margin="0,4,0,0"/>
             </StackPanel>
 
-            <!-- Form -->
-            <TextBlock Text="Email" FontFamily="Segoe UI" FontSize="11"
-                       FontWeight="Medium" Foreground="{StaticResource TextSecondaryBrush}"
-                       Margin="0,0,0,4"/>
-            <TextBox x:Name="EmailBox" Style="{StaticResource DarkTextBox}"
-                     Margin="0,0,0,12"/>
+            <!-- Primary: sign in by approving a code on the website (HCR-006) -->
+            <StackPanel x:Name="PairStartPanel">
+                <Button x:Name="PairButton" Content="Sign in with your browser"
+                        Style="{StaticResource PrimaryButton}"
+                        Click="PairButton_Click"/>
+                <TextBlock Text="Opens turnonehub.com — Link never sees your password."
+                           HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"
+                           FontFamily="Segoe UI" FontSize="11"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="0,8,0,0"/>
+            </StackPanel>
 
-            <TextBlock Text="Password" FontFamily="Segoe UI" FontSize="11"
-                       FontWeight="Medium" Foreground="{StaticResource TextSecondaryBrush}"
-                       Margin="0,0,0,4"/>
-            <PasswordBox x:Name="PasswordBox" Style="{StaticResource DarkPasswordBox}"
-                         Margin="0,0,0,6"/>
+            <!-- Shown while waiting for the code to be approved -->
+            <StackPanel x:Name="PairCodePanel" Visibility="Collapsed">
+                <TextBlock Text="Approve this code in your browser"
+                           HorizontalAlignment="Center"
+                           FontFamily="Segoe UI" FontSize="12"
+                           Foreground="{StaticResource TextSecondaryBrush}"/>
+                <TextBlock x:Name="PairCodeText" Text="XXXX-XXXX"
+                           HorizontalAlignment="Center" Margin="0,8,0,8"
+                           FontFamily="Consolas" FontSize="30" FontWeight="Bold"
+                           Foreground="White"/>
+                <TextBlock x:Name="PairStatusText" Text="Waiting for approval…"
+                           HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"
+                           FontFamily="Segoe UI" FontSize="11"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="0,0,0,12"/>
+                <Button Content="Open browser again" Style="{StaticResource GhostButton}"
+                        HorizontalAlignment="Center" FontSize="11"
+                        Click="OpenBrowserAgain_Click"/>
+                <Button Content="Cancel" Style="{StaticResource GhostButton}"
+                        HorizontalAlignment="Center" FontSize="11" Margin="0,4,0,0"
+                        Click="CancelPairing_Click"/>
+            </StackPanel>
+
+            <!-- Fallback: email + password (kept for one beta build, see HCR-006 rollout) -->
+            <StackPanel x:Name="EmailForm" Visibility="Collapsed" Margin="0,16,0,0">
+                <TextBlock Text="Email" FontFamily="Segoe UI" FontSize="11"
+                           FontWeight="Medium" Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="0,0,0,4"/>
+                <TextBox x:Name="EmailBox" Style="{StaticResource DarkTextBox}"
+                         Margin="0,0,0,12"/>
+
+                <TextBlock Text="Password" FontFamily="Segoe UI" FontSize="11"
+                           FontWeight="Medium" Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="0,0,0,4"/>
+                <PasswordBox x:Name="PasswordBox" Style="{StaticResource DarkPasswordBox}"
+                             Margin="0,0,0,6"/>
+
+                <Button x:Name="LoginButton" Content="Sign In"
+                        Style="{StaticResource PrimaryButton}"
+                        Margin="0,6,0,0"
+                        Click="LoginButton_Click"/>
+            </StackPanel>
 
             <TextBlock x:Name="ErrorText" Text=""
-                       FontFamily="Segoe UI" FontSize="11"
+                       FontFamily="Segoe UI" FontSize="11" TextWrapping="Wrap" TextAlignment="Center"
                        Foreground="{StaticResource AccentBrush}"
-                       Margin="0,0,0,16" Visibility="Collapsed"/>
+                       Margin="0,12,0,0" Visibility="Collapsed"/>
 
-            <Button x:Name="LoginButton" Content="Sign In"
-                    Style="{StaticResource PrimaryButton}"
-                    Margin="0,6,0,0"
-                    Click="LoginButton_Click"/>
+            <TextBlock x:Name="EmailToggleText" HorizontalAlignment="Center" Margin="0,14,0,0">
+                <Hyperlink x:Name="EmailToggleLink" Click="EmailToggle_Click"
+                           Foreground="{StaticResource TextSecondaryBrush}" TextDecorations="None">
+                    <Run x:Name="EmailToggleRun" Text="Sign in with email instead" FontFamily="Segoe UI" FontSize="11"/>
+                </Hyperlink>
+            </TextBlock>
 
             <TextBlock HorizontalAlignment="Center" Margin="0,14,0,0">
                 <Run Text="Don't have an account? " Foreground="{StaticResource TextSecondaryBrush}"

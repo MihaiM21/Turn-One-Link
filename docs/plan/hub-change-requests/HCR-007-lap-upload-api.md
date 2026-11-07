@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | draft |
+| **Status** | approved (owner, 2026-11-06) |
 | **Requested by** | turn-one-link — LF-11, LF-12, HF-02 (decision D3) |
 | **Needed by** | Phase 1 (closed beta) |
 | **Breaking?** | **No — additive only.** Live WSS ingestion keeps working unchanged. |
