@@ -42,6 +42,10 @@ public sealed class AppSettings
     [JsonPropertyName("enableSessionLogging")]
     public bool EnableSessionLogging { get; set; } = true;
 
+    /// <summary>F1 25/26 on PlayStation / Xbox: listen for its UDP telemetry without a game on this PC. Default: off.</summary>
+    [JsonPropertyName("f1ConsoleMode")]
+    public bool F1ConsoleMode { get; set; } = false;
+
     /// <summary>Send anonymous crash reports (no telemetry, no account data). Default: on.</summary>
     [JsonPropertyName("sendCrashReports")]
     public bool SendCrashReports { get; set; } = true;

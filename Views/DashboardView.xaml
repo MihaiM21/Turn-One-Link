@@ -63,6 +63,7 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="4"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0" Grid.Column="0"
@@ -93,6 +94,11 @@
                            Text="No game detected"
                            FontFamily="Segoe UI" FontSize="14" FontWeight="SemiBold"
                            Foreground="White"/>
+
+                <!-- Telemetry health check (LF-16): why no data is arriving, and how to fix it -->
+                <TextBlock x:Name="SimHealthText" Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                           Visibility="Collapsed" TextWrapping="Wrap" Margin="0,6,0,0"
+                           FontFamily="Segoe UI" FontSize="11" Foreground="#FFC14B"/>
             </Grid>
         </Border>
 
@@ -586,6 +592,29 @@
                                        Margin="0,3,0,0" TextWrapping="Wrap"/>
                         </StackPanel>
                         <CheckBox x:Name="EnableSessionLoggingToggle"
+                                  Grid.Column="1"
+                                  Style="{StaticResource ToggleSwitch}"
+                                  VerticalAlignment="Center"
+                                  Checked="SettingsToggle_Changed"
+                                  Unchecked="SettingsToggle_Changed"/>
+                    </Grid>
+
+                    <!-- Toggle: F1 on console (D15) -->
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+                            <TextBlock Text="F1 on PlayStation / Xbox"
+                                       FontFamily="Segoe UI" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="White"/>
+                            <TextBlock Text="Listen for F1 25/26 telemetry sent from a console on your network"
+                                       FontFamily="Segoe UI" FontSize="10"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       Margin="0,3,0,0" TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <CheckBox x:Name="F1ConsoleToggle"
                                   Grid.Column="1"
                                   Style="{StaticResource ToggleSwitch}"
                                   VerticalAlignment="Center"

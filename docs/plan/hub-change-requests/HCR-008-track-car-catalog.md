@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | approved (owner, 2026-11-06) |
+| **Status** | on dev (2026-11-07) |
 | **Requested by** | turn-one-link — HF-03, HF-11 (decision D6) |
 | **Needed by** | Phase 1 (closed beta) |
 | **Breaking?** | **No — additive only.** |
@@ -49,4 +49,4 @@ Admin endpoints `ADMIN` role, server-checked.
 Seed + backfill job for existing sessions. Rollback = ignore new columns.
 
 ## Implementation notes
-_(Hub-side session fills this in.)_
+- Merged to `dev` via MihaiM21/Turn-One#144/#145: `TrackLayout`/`TrackAlias`, `Car`/`CarAlias`, `CarClass`, `CatalogService` (48 curated layouts with ACC + F1 25/26 aliases, seeded at startup). Deviation: one `TrackLayout` table instead of `Track` + `TrackLayout`; unknown ids get provisional slugs `<sim>:<id>`. Admin alias editing is not built yet.

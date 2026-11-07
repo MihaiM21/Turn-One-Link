@@ -62,20 +62,36 @@ public sealed class F1UdpTelemetrySource : ITelemetrySource
     private string _lastIdentity = "";
     private readonly bool[] _sizeWarned = new bool[16];
 
-    public F1UdpTelemetrySource(Action<string>? log = null)
+    public F1UdpTelemetrySource(Action<string>? log = null, int? port = null)
     {
         _log = log;
         var raw = Environment.GetEnvironmentVariable("F1_UDP_PORT");
-        _port = int.TryParse(raw, out var p) && p is > 0 and < 65536 ? p : DefaultPort;
+        _port = port ?? (int.TryParse(raw, out var p) && p is > 0 and < 65536 ? p : DefaultPort);
     }
+
+    /// <summary>UDP port this source listens on (F1_UDP_PORT, default 20777).</summary>
+    public int Port => _port;
 
     public void Start()
     {
         if (_udp != null) return;
+        var udp = new UdpClient(AddressFamily.InterNetwork);
+        try
+        {
+            udp.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            udp.Client.Bind(new IPEndPoint(IPAddress.Any, _port));
+        }
+        catch (SocketException ex)
+        {
+            // Another app (SimHub, a second Link) holds the port: say so instead of silently receiving nothing.
+            udp.Dispose();
+            _log?.Invoke($"F1 UDP: can't listen on port {_port} — {ex.Message}. Close the other app using it or set F1_UDP_PORT.");
+            OnError?.Invoke(ex);
+            return;
+        }
+
+        _udp = udp;
         _cts = new CancellationTokenSource();
-        _udp = new UdpClient(AddressFamily.InterNetwork);
-        _udp.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-        _udp.Client.Bind(new IPEndPoint(IPAddress.Any, _port));
         _log?.Invoke($"F1 UDP: listening on port {_port}");
         _ = Task.Run(() => ReceiveLoopAsync(_cts.Token));
     }
@@ -154,7 +170,9 @@ public sealed class F1UdpTelemetrySource : ITelemetrySource
             _lastIdentity = "";
         }
 
-        var car = h.PlayerCarIndex < MaxCars ? h.PlayerCarIndex : 0;
+        // 255 = spectating / broadcast mode: there is no player car, so there is nothing to record.
+        if (h.PlayerCarIndex >= MaxCars) return;
+        var car = h.PlayerCarIndex;
 
         switch (h.Id)
         {
@@ -348,7 +366,7 @@ public sealed class F1UdpTelemetrySource : ITelemetrySource
             Heading: m?.Yaw,
             Valid: l.CurrentLapInvalid == 0 && _flashbackLap != l.CurrentLapNum,
             Pit: l.PitStatus,                 // 0 none, 1 pitting, 2 in pit area — same scale as the contract
-            DriverStatus: l.DriverStatus,     // 0 garage, 1 flying, 2 in lap, 3 out lap, 4 on track
+            DriverStatus: MapDriverStatus(l.DriverStatus),
             Fuel: st?.FuelInTank,
             Tc: st?.TractionControl,
             Abs: st?.AntiLockBrakes,
@@ -399,4 +417,17 @@ public sealed class F1UdpTelemetrySource : ITelemetrySource
             IsValidLap: l.CurrentLapInvalid == 0,
             IsInPitLane: l.PitStatus != 0));
     }
+
+    /// <summary>
+    /// F1 reports 0 garage, 1 flying lap, 2 in lap, 3 out lap, 4 on track; the v2 contract wants
+    /// 0 flying, 1 out lap, 2 in lap, 3 garage ("on track" outside a timed lap counts as flying).
+    /// </summary>
+    public static int MapDriverStatus(byte f1Status) => f1Status switch
+    {
+        0 => 3,
+        1 => 0,
+        2 => 2,
+        3 => 1,
+        _ => 0,
+    };
 }

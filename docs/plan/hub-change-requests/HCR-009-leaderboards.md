@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | approved (owner, 2026-11-06) |
+| **Status** | on dev (2026-11-07) |
 | **Requested by** | turn-one-link — HF-03, HF-04, HF-05, HF-07 (decisions D6, D12) |
 | **Needed by** | Phase 1 (closed beta) |
 | **Breaking?** | **No — additive only.** The existing lifetime-totals `GET /api/telemetry/leaderboards` stays. |
@@ -54,4 +54,5 @@ Public responses never include user ids or emails. Rate limit 60/min per IP. Exc
 Backfill validations for existing laps; ship UI behind a flag. Rollback = hide UI.
 
 ## Implementation notes
-_(Hub-side session fills this in.)_
+- Merged to `dev` via MihaiM21/Turn-One#144/#145: `LapValidator` v1, `LapValidation` per lap (board key + eligibility), `SimLeaderboardService`, `SimLeaderboardsController`. Deviation: no materialised `LeaderboardEntry` — boards are best-per-driver queries over `LapValidation`, which also gives week/month boards. Tick-level checks and condition splits are for a later validator version.
+- After deploy: `POST /api/simracing/admin/leaderboards/backfill` once.

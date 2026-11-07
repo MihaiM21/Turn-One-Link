@@ -29,6 +29,11 @@ public partial class MainWindow : Window
     private readonly Services.Upload.UploadQueue _uploads;
     private UpdateService? _updates;
     private CancellationTokenSource? _pairingCts;
+    // Telemetry health check (LF-16)
+    private readonly System.Windows.Threading.DispatcherTimer _healthTimer = new() { Interval = TimeSpan.FromSeconds(2) };
+    private string? _simGame;
+    private DateTime _simConnectedAt;
+    private DateTime? _lastTickAt;
     private PairingCode? _pairingCode;
     private TelemetryStreamingService? _streaming;
     private LocalWebSocketServer? _localServer;
@@ -50,7 +55,9 @@ public partial class MainWindow : Window
         // connection or a closed app never loses it.
         var outbox = Services.Upload.LapRecorder.DefaultOutboxDir;
         _recorder = new Services.Upload.LapRecorder(outbox, msg => _dashboardView?.AddConsoleLog(msg));
-        _uploads = new Services.Upload.UploadQueue(outbox, _auth, log: msg => _dashboardView?.AddConsoleLog(msg));
+        _uploads = new Services.Upload.UploadQueue(outbox, _auth,
+            uploadsAllowed: () => _updates?.UploadsAccepted ?? true,
+            log: msg => _dashboardView?.AddConsoleLog(msg));
         _recorder.OutboxChanged += _ => _uploads.Kick();
         _uploads.SessionStateChanged += (id, state, sent, waiting) =>
             _dashboardView?.AddConsoleLog(state switch
@@ -60,6 +67,9 @@ public partial class MainWindow : Window
                 _ => $"[UPLOAD] Session {id[..8]}: {sent} uploaded, {waiting} waiting.",
             });
         _uploads.Start();
+
+        _healthTimer.Tick += (_, _) => UpdateTelemetryHealth();
+        _healthTimer.Start();
         // Subscribed once for the window's lifetime (not per sign-in, which stacked handlers).
         _connection.SimStatusChanged += OnSimStatusChanged;
     }
@@ -68,6 +78,9 @@ public partial class MainWindow : Window
         Dispatcher.Invoke(() =>
         {
             _simConnected = state.Status == SimStatus.Connected;
+            _simGame = _simConnected ? state.GameName : null;
+            _simConnectedAt = DateTime.UtcNow;
+            _lastTickAt = null;
             UpdateAccentMark();
             _dashboardView?.ApplySimStatus(state.Status, state.GameName);
 
@@ -75,7 +88,7 @@ public partial class MainWindow : Window
             {
                 if (!_telemetryActive)
                 {
-                    var source = CreateSourceFor(state.GameName, out var sourceName);
+                    var source = CreateSourceFor(state.GameName, msg => _dashboardView?.AddConsoleLog(msg), out var sourceName);
                     if (source != null)
                         StartTelemetryAsync(source, sourceName);
                 }
@@ -221,6 +234,13 @@ public partial class MainWindow : Window
             Dispatcher.Invoke(() => AnimateWindowHeight(contentHeight + ChromeOverhead));
 
         MainContent.Content = _dashboardView;
+        _connection.F1ConsoleMode = _dashboardView.F1ConsoleMode;
+        _dashboardView.F1ConsoleModeChanged += on =>
+        {
+            _connection.F1ConsoleMode = on;
+            if (on)
+                _dashboardView?.AddConsoleLog($"[F1] Console mode on — in F1 set UDP IP address {GetLocalIpAddress()}, port {F1Port()}.");
+        };
         if (_updates?.CompatMessage is { } compat) _dashboardView.AddConsoleLog($"[UPDATE] {compat}");
         _connection.Start();
 
@@ -352,6 +372,22 @@ public partial class MainWindow : Window
         _loginView?.ShowPairingStart();
     }
 
+    private int F1Port() =>
+        (_telemetry as Turn_One_Link.Services.F1.F1UdpTelemetrySource)?.Port
+        ?? (int.TryParse(Environment.GetEnvironmentVariable("F1_UDP_PORT"), out var p) ? p : 20777);
+
+    private void UpdateTelemetryHealth()
+    {
+        if (_dashboardView == null) return;
+        var hint = TelemetryHealth.Hint(
+            _simGame,
+            DateTime.UtcNow - _simConnectedAt,
+            _lastTickAt is { } t ? DateTime.UtcNow - t : null,
+            F1Port(),
+            GetLocalIpAddress());
+        _dashboardView.SetTelemetryHealth(hint);
+    }
+
     private static void OpenBrowser(string url)
     {
         try
@@ -383,7 +419,7 @@ public partial class MainWindow : Window
 
     /// <summary>Resolves which telemetry source to use for a detected sim process name.
     /// Returns null for sims Turn One Link doesn't have telemetry support for yet.</summary>
-    private static ITelemetrySource? CreateSourceFor(string? gameName, out string sourceName)
+    private static ITelemetrySource? CreateSourceFor(string? gameName, Action<string>? log, out string sourceName)
     {
         sourceName = "ACC";
         if (gameName == null) return null;
@@ -415,10 +451,10 @@ public partial class MainWindow : Window
 
         // EA F1 25/26 broadcast telemetry over UDP; the exact title is resolved from the packet
         // header's packetFormat once the first packet arrives (Services/F1/F1UdpTelemetrySource.cs).
-        if (gameName is "F1 25" or "F1 26")
+        if (gameName is "F1 25" or "F1 26" or ConnectionService.F1ConsoleGameName)
         {
             sourceName = "F1";
-            return new Turn_One_Link.Services.F1.F1UdpTelemetrySource();
+            return new Turn_One_Link.Services.F1.F1UdpTelemetrySource(log);
         }
 
         return null; // other sims in ConnectionService.OtherSimProcessNames stay undetected for telemetry
@@ -563,6 +599,7 @@ public partial class MainWindow : Window
         telemetry.TickUpdated    += streaming.OnTick;
         telemetry.LapCompleted   += streaming.OnLapComplete;
         telemetry.TickUpdated    += _recorder.OnTick;
+        telemetry.TickUpdated    += _ => _lastTickAt = DateTime.UtcNow;
         telemetry.LapCompleted   += _recorder.OnLapComplete;
 
         // Legacy v1 cloud stream speaks ACC's raw shared-memory struct shape (see
