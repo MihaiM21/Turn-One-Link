@@ -273,7 +273,7 @@ public partial class MainWindow : Window
         {
             var localIp = GetLocalIpAddress();
             var address = $"ws://{localIp}:{port}";
-            _dashboardView?.SetLocalServerInfo(address, pin, port);
+            _dashboardView?.SetLocalServerInfo(address, pin, port, LocalWebSocketServer.DashboardUrl(localIp, port, pin));
             _dashboardView?.AddConsoleLog($"[LOCAL] Server listening on {address} | PIN: {pin}");
         }
     }

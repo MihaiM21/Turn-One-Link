@@ -140,11 +140,38 @@ public partial class DashboardView : UserControl
     // ── Local Server ──────────────────────────────────────────────────────────
 
     /// <summary>Sets the local server address and PIN displayed in the card.</summary>
-    public void SetLocalServerInfo(string address, string pin, int port)
+    public void SetLocalServerInfo(string address, string pin, int port, string dashboardUrl)
     {
         LocalAddressText.Text = address;
         LocalPinText.Text     = pin;
         PortConflictBanner.Visibility = Visibility.Collapsed;
+
+        // Without the PIN, so it can be shown on stream / in a screenshot without giving it away.
+        LocalDashUrlText.Text = dashboardUrl[..dashboardUrl.IndexOf('#')];
+        LocalQrImage.Source = QrImage(dashboardUrl);
+    }
+
+    private static System.Windows.Media.Imaging.BitmapImage QrImage(string text)
+    {
+        using var generator = new QRCoder.QRCodeGenerator();
+        using var data = generator.CreateQrCode(text, QRCoder.QRCodeGenerator.ECCLevel.M);
+        var png = new QRCoder.PngByteQRCode(data).GetGraphic(8);
+
+        var image = new System.Windows.Media.Imaging.BitmapImage();
+        image.BeginInit();
+        image.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+        image.StreamSource = new MemoryStream(png);
+        image.EndInit();
+        image.Freeze();
+        return image;
+    }
+
+    private void ShowQrButton_Click(object sender, RoutedEventArgs e)
+    {
+        var show = QrPanel.Visibility != Visibility.Visible;
+        QrPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        ShowQrButton.Content = show ? "Hide QR" : "📷  Phone dashboard";
+        DesiredHeightChanged?.Invoke(CalculateDesiredHeight());
     }
 
     /// <summary>Updates the connected device count and status dot colour.</summary>
@@ -327,6 +354,7 @@ public partial class DashboardView : UserControl
         double h = Base;
         if (SimHealthText.Visibility == Visibility.Visible)    h += 34;  // health hint (two lines)
         if (_settings.ShowLocalWsInfo)                          h += 118; // Local WS card
+        if (_settings.ShowLocalWsInfo && QrPanel.Visibility == Visibility.Visible) h += 166; // QR panel
         if (_settings.ShowLiveTelemetry && _simIsStreaming)     h += 156; // Live Telemetry panel
         if (_settings.ShowConsole)                              h += 172; // Console (MinHeight=160 + margins)
 

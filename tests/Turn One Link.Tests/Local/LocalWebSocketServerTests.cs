@@ -133,6 +133,38 @@ public class LocalWebSocketServerTests
         LocalWebSocketServer.IsSameHostOrigin(origin, host).Should().Be(expected);
     }
 
+    private static async Task<(int Status, string ContentType, string Body)> GetAsync(int port, string path)
+    {
+        using var http = new System.Net.Http.HttpClient();
+        using var response = await http.GetAsync($"http://127.0.0.1:{port}{path}");
+        return ((int)response.StatusCode, response.Content.Headers.ContentType?.MediaType ?? "", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Serves_The_Phone_Dashboard_And_A_Health_Check()
+    {
+        var port = FreePort();
+        using var server = new LocalWebSocketServer(port, "790513");
+        server.TryStart();
+
+        var page = await GetAsync(port, "/");
+        page.Status.Should().Be(200);
+        page.ContentType.Should().Be("text/html");
+        page.Body.Should().Contain("Delta to best").And.Contain("auth_required").And.NotContain("790513");
+
+        var health = await GetAsync(port, "/health");
+        health.Body.Should().Contain("\"status\":\"online\"");
+
+        (await GetAsync(port, "/nope")).Status.Should().Be(404);
+    }
+
+    [Fact]
+    public void Dashboard_Url_Carries_The_Pin_In_The_Fragment()
+    {
+        LocalWebSocketServer.DashboardUrl("192.168.1.20", 8080, "482910")
+            .Should().Be("http://192.168.1.20:8080/#pin=482910");
+    }
+
     [Fact]
     public void Pins_Are_Six_Digits()
     {

@@ -168,6 +168,7 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="6"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0" Grid.Column="0"
@@ -260,6 +261,30 @@
                                FontFamily="Consolas, Courier New" FontSize="13" FontWeight="Bold"
                                Foreground="#FFC14B" VerticalAlignment="Center"
                                Margin="4,0,0,0"/>
+                    <Button x:Name="ShowQrButton"
+                            Content="📷  Phone dashboard"
+                            Style="{StaticResource GhostButton}"
+                            FontSize="11" Height="22" Margin="12,0,0,0"
+                            ToolTip="Show a QR code for the phone dashboard"
+                            Click="ShowQrButton_Click"/>
+                </StackPanel>
+
+                <!-- Phone dashboard QR (LF-17): the URL carries the PIN in its fragment -->
+                <StackPanel x:Name="QrPanel" Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
+                            Orientation="Horizontal" Margin="0,10,0,0" Visibility="Collapsed">
+                    <Border Background="White" Padding="6" CornerRadius="6">
+                        <Image x:Name="LocalQrImage" Width="140" Height="140"
+                               RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                    </Border>
+                    <StackPanel Margin="12,0,0,0" VerticalAlignment="Center" Width="180">
+                        <TextBlock Text="Scan with your phone or tablet on the same Wi-Fi."
+                                   FontFamily="Segoe UI" FontSize="11" Foreground="White"
+                                   TextWrapping="Wrap"/>
+                        <TextBlock x:Name="LocalDashUrlText" Text=""
+                                   FontFamily="Consolas, Courier New" FontSize="10"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap" Margin="0,6,0,0"/>
+                    </StackPanel>
                 </StackPanel>
             </Grid>
         </Border>

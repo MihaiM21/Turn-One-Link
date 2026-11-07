@@ -29,6 +29,7 @@
     <ItemGroup>
       <PackageReference Include="DotNetEnv" Version="3.2.0" />
       <PackageReference Include="IRSDKSharper" Version="1.1.10" />
+      <PackageReference Include="QRCoder" Version="1.8.0" />
       <PackageReference Include="Sentry" Version="6.12.1" />
       <PackageReference Include="Velopack" Version="1.2.161" />
     </ItemGroup>
@@ -61,6 +62,11 @@
       <Resource Include="Content\logo32.png" />
       <Resource Include="Content\logo bigger margins t1.png" />
       <Resource Include="Content\app_icon.ico" />
+    </ItemGroup>
+
+    <!-- Phone dashboard served by the LAN server (LF-17) -->
+    <ItemGroup>
+      <EmbeddedResource Include="Content\phone-dash.html" LogicalName="Turn_One_Link.Content.phone-dash.html" />
     </ItemGroup>
 
 </Project>
