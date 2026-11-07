@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0b0f">
+<title>Turn One Link — Dash</title>
+<style>
+  /* Same palette as the desktop app (App.xaml). */
+  :root {
+    --bg: #0b0b0f; --panel: #15151c; --line: #26262f; --text: #ffffff; --muted: #8a8a99;
+    --accent: #e8173a; --good: #22c55e; --bad: #ef4444; --warn: #ffc14b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; }
+  body { padding: max(12px, env(safe-area-inset-top)) 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+  .row { display: grid; gap: 10px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); padding: 10px 12px; }
+  .label { font-size: 10px; letter-spacing: .25em; text-transform: uppercase; color: var(--muted); }
+  .big { font-variant-numeric: tabular-nums; font-weight: 800; line-height: 1; }
+  #delta { font-size: clamp(48px, 16vw, 120px); text-align: center; }
+  #deltaBar { height: 10px; background: var(--line); position: relative; margin-top: 8px; }
+  #deltaFill { position: absolute; top: 0; bottom: 0; left: 50%; width: 0; }
+  .times { grid-template-columns: repeat(3, 1fr); }
+  .times .big { font-size: clamp(18px, 5.5vw, 32px); margin-top: 4px; }
+  .car { grid-template-columns: 1fr 1fr 1fr; }
+  .car .big { font-size: clamp(22px, 7vw, 44px); margin-top: 4px; }
+  .tyres { grid-template-columns: 1fr 1fr; }
+  .tyre { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; font-size: 15px; padding: 4px 0; }
+  #status { font-size: 12px; color: var(--muted); text-align: center; }
+  #status.err { color: var(--bad); }
+  @media (orientation: landscape) {
+    body { display: grid; grid-template-columns: 1.3fr 1fr; grid-auto-rows: min-content; }
+    #deltaPanel { grid-row: span 2; }
+  }
+</style>
+</head>
+<body>
+  <div id="deltaPanel" class="panel">
+    <div class="label">Delta to best</div>
+    <div id="delta" class="big">—</div>
+    <div id="deltaBar"><div id="deltaFill"></div></div>
+  </div>
+
+  <div class="row times">
+    <div class="panel"><div class="label">Current</div><div id="current" class="big">—</div></div>
+    <div class="panel"><div class="label">Best</div><div id="best" class="big">—</div></div>
+    <div class="panel"><div class="label">Lap · Pos</div><div id="lap" class="big">—</div></div>
+  </div>
+
+  <div class="row car">
+    <div class="panel"><div class="label">Gear</div><div id="gear" class="big">N</div></div>
+    <div class="panel"><div class="label">km/h</div><div id="speed" class="big">0</div></div>
+    <div class="panel"><div class="label">Fuel laps</div><div id="fuel" class="big">—</div></div>
+  </div>
+
+  <div class="row tyres">
+    <div class="panel"><div class="label">Tyre °C</div><div id="temps"></div></div>
+    <div class="panel"><div class="label">Pressure</div><div id="press"></div></div>
+  </div>
+
+  <div id="status">Connecting…</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const status = (text, error) => { $("status").textContent = text; $("status").className = error ? "err" : ""; };
+  // The PIN travels in the URL fragment (#pin=123456), which the browser never sends to any server.
+  const pin = new URLSearchParams(location.hash.slice(1)).get("pin") || "";
+  const fmt = ms => {
+    if (!ms || ms <= 0) return "—";
+    const m = Math.floor(ms / 60000), s = Math.floor(ms % 60000 / 1000), t = Math.floor(ms % 1000 / 100);
+    return `${m}:${String(s).padStart(2, "0")}.${t}`;
+  };
+  const gear = g => g <= 0 ? "R" : g === 1 ? "N" : String(g - 1);
+  const corners = (o, digits) => o ? ["fl", "fr", "rl", "rr"].map(k =>
+    `<div class="tyre"><span class="label">${k.toUpperCase()}</span><span>${(o[k] ?? 0).toFixed(digits)}</span></div>`).join("") : "";
+
+  let wakeLock = null;
+  const keepAwake = async () => { try { wakeLock = await navigator.wakeLock?.request("screen"); } catch { /* not allowed */ } };
+  document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && keepAwake());
+
+  function render(d) {
+    const delta = d.lap?.deltaMs;
+    if (typeof delta === "number" && d.lap?.bestMs > 0) {
+      $("delta").textContent = (delta > 0 ? "+" : "") + (delta / 1000).toFixed(2);
+      $("delta").style.color = delta > 0 ? "var(--bad)" : "var(--good)";
+      const w = Math.min(Math.abs(delta) / 2000, 1) * 50;
+      Object.assign($("deltaFill").style, {
+        width: w + "%", left: delta > 0 ? "50%" : (50 - w) + "%",
+        background: delta > 0 ? "var(--bad)" : "var(--good)",
+      });
+    } else {
+      $("delta").textContent = "—";
+      $("delta").style.color = "var(--text)";
+      $("deltaFill").style.width = "0";
+    }
+    $("current").textContent = fmt(d.lap?.currentMs);
+    $("best").textContent = fmt(d.lap?.bestMs);
+    $("lap").textContent = d.lap ? `${d.lap.number ?? "—"} · P${d.lap.position ?? "—"}` : "—";
+    $("gear").textContent = gear(d.engine?.gear ?? 1);
+    $("speed").textContent = Math.round(d.speed?.kmh ?? 0);
+    const laps = d.fuel?.estimatedStintLaps ?? d.fuel?.estimatedLaps;
+    $("fuel").textContent = laps > 0 ? laps.toFixed(1) : "—";
+    $("temps").innerHTML = corners(d.tyres?.temps, 0);
+    $("press").innerHTML = corners(d.tyres?.pressures, 1);
+  }
+
+  let retry = 1000;
+  function connect() {
+    const ws = new WebSocket(`ws://${location.host}/`);
+    ws.onopen = () => status("Pairing…");
+    ws.onmessage = e => {
+      let msg;
+      try { msg = JSON.parse(e.data); } catch { return; }
+      switch (msg.type) {
+        case "auth_required": ws.send(JSON.stringify({ pin })); break;
+        case "auth_ok": status("Connected"); retry = 1000; keepAwake(); break;
+        case "auth_failed": status("Wrong PIN — scan the QR code in Turn One Link again.", true); retry = 0; break;
+        case "ping": ws.send(JSON.stringify({ type: "pong" })); break;
+        case "t1_telemetry": render(msg.data || {}); break;
+      }
+    };
+    ws.onclose = () => {
+      if (retry === 0) return;
+      status("Reconnecting…", true);
+      setTimeout(connect, retry);
+      retry = Math.min(retry * 2, 10000);
+    };
+  }
+
+  if (!pin) status("Open this page by scanning the QR code in Turn One Link.", true);
+  else connect();
+})();
+</script>
+</body>
+</html>

@@ -38,6 +38,22 @@ public sealed class LocalWebSocketServer : IDisposable
     private static readonly TimeSpan PinLockout = TimeSpan.FromSeconds(60);
     private const int ClientQueueLength = 4; // telemetry frames; older ones are stale anyway
 
+    /// <summary>Pseudo-header carrying the request path out of <see cref="ReadHttpHeadersAsync"/>.</summary>
+    private const string RequestPathKey = ":path";
+
+    /// <summary>The phone dashboard (Content/phone-dash.html), embedded in the exe.</summary>
+    private static readonly Lazy<byte[]> PhoneDashboardHtml = new(() =>
+    {
+        using var stream = typeof(LocalWebSocketServer).Assembly.GetManifestResourceStream("Turn_One_Link.Content.phone-dash.html");
+        if (stream == null) return "Dashboard not available in this build."u8.ToArray();
+        using var ms = new System.IO.MemoryStream();
+        stream.CopyTo(ms);
+        return ms.ToArray();
+    });
+
+    /// <summary>The address a phone opens (the PIN rides in the fragment, never sent over the network).</summary>
+    public static string DashboardUrl(string host, int port, string pin) => $"http://{host}:{port}/#pin={pin}";
+
     private static readonly JsonSerializerOptions JsonCamel = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -177,10 +193,17 @@ public sealed class LocalWebSocketServer : IDisposable
 
         if (!isUpgrade || wsKey == null)
         {
-            // Plain browser health-check
-            var body = "{\"service\":\"Turn One Link\",\"status\":\"online\"}"u8.ToArray();
+            // Plain HTTP: the phone dashboard page (LF-17) at "/", a health check at "/health".
+            var path = headers.GetValueOrDefault(RequestPathKey, "/").Split('?')[0];
+            var (status, contentType, body) = path switch
+            {
+                "/" or "/index.html" => ("200 OK", "text/html; charset=utf-8", PhoneDashboardHtml.Value),
+                "/health" => ("200 OK", "application/json", "{\"service\":\"Turn One Link\",\"status\":\"online\"}"u8.ToArray()),
+                _ => ("404 Not Found", "text/plain", "Not found"u8.ToArray()),
+            };
             var resp = Encoding.ASCII.GetBytes(
-                $"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n");
+                $"HTTP/1.1 {status}\r\nContent-Type: {contentType}\r\nContent-Length: {body.Length}\r\n" +
+                "Cache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n");
             try { await stream.WriteAsync(resp, token); await stream.WriteAsync(body, token); } catch { }
             return;
         }
@@ -442,8 +465,10 @@ public sealed class LocalWebSocketServer : IDisposable
                 break;
         }
 
-        // Parse header lines (skip the first request-line)
+        // Request line ("GET /path HTTP/1.1") → path; then the header lines.
         var lines = sb.ToString().Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+        if (lines.Length > 0 && lines[0].Split(' ') is { Length: >= 2 } requestLine)
+            headers[RequestPathKey] = requestLine[1];
         for (int i = 1; i < lines.Length; i++)
         {
             var colonIdx = lines[i].IndexOf(':');

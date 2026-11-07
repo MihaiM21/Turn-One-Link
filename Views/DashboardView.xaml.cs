@@ -40,12 +40,14 @@ public partial class DashboardView : UserControl
         EnableSessionLoggingToggle.Checked   -= SettingsToggle_Changed;
         SendCrashReportsToggle.Checked       -= SettingsToggle_Changed;
         F1ConsoleToggle.Checked              -= SettingsToggle_Changed;
+        LiveStreamingToggle.Checked          -= SettingsToggle_Changed;
         ShowTelemetryToggle.Unchecked       -= SettingsToggle_Changed;
         ShowConsoleToggle.Unchecked         -= SettingsToggle_Changed;
         ShowLocalWsToggle.Unchecked         -= SettingsToggle_Changed;
         EnableSessionLoggingToggle.Unchecked -= SettingsToggle_Changed;
         SendCrashReportsToggle.Unchecked     -= SettingsToggle_Changed;
         F1ConsoleToggle.Unchecked            -= SettingsToggle_Changed;
+        LiveStreamingToggle.Unchecked        -= SettingsToggle_Changed;
 
         ShowTelemetryToggle.IsChecked        = _settings.ShowLiveTelemetry;
         ShowConsoleToggle.IsChecked          = _settings.ShowConsole;
@@ -53,6 +55,7 @@ public partial class DashboardView : UserControl
         EnableSessionLoggingToggle.IsChecked = _settings.EnableSessionLogging;
         SendCrashReportsToggle.IsChecked     = _settings.SendCrashReports;
         F1ConsoleToggle.IsChecked            = _settings.F1ConsoleMode;
+        LiveStreamingToggle.IsChecked        = _settings.LiveStreaming;
 
         ShowTelemetryToggle.Checked         += SettingsToggle_Changed;
         ShowConsoleToggle.Checked           += SettingsToggle_Changed;
@@ -60,12 +63,14 @@ public partial class DashboardView : UserControl
         EnableSessionLoggingToggle.Checked   += SettingsToggle_Changed;
         SendCrashReportsToggle.Checked       += SettingsToggle_Changed;
         F1ConsoleToggle.Checked              += SettingsToggle_Changed;
+        LiveStreamingToggle.Checked          += SettingsToggle_Changed;
         ShowTelemetryToggle.Unchecked       += SettingsToggle_Changed;
         ShowConsoleToggle.Unchecked         += SettingsToggle_Changed;
         ShowLocalWsToggle.Unchecked         += SettingsToggle_Changed;
         EnableSessionLoggingToggle.Unchecked += SettingsToggle_Changed;
         SendCrashReportsToggle.Unchecked     += SettingsToggle_Changed;
         F1ConsoleToggle.Unchecked            += SettingsToggle_Changed;
+        LiveStreamingToggle.Unchecked        += SettingsToggle_Changed;
 
         VersionLabel.Text = $"v{AppInfo.Version}";
         ApplySettings();
@@ -80,6 +85,48 @@ public partial class DashboardView : UserControl
 
     /// <summary>F1 console mode turned on or off in settings.</summary>
     public event Action<bool>? F1ConsoleModeChanged;
+
+    /// <summary>Live streaming turned on or off in settings (LF-14).</summary>
+    public event Action<bool>? LiveStreamingChanged;
+
+    public bool LiveStreaming => _settings.LiveStreaming;
+
+    /// <summary>A row of the recent-sessions list.</summary>
+    public sealed record SessionRow(string Title, string State, System.Windows.Media.Brush StateBrush, Uri WebUrl);
+
+    private int _sessionRows;
+
+    /// <summary>Shows the newest sessions (at most four) under the server status.</summary>
+    public void SetSessions(IReadOnlyList<SessionRow> rows)
+    {
+        var shown = rows.Take(4).ToList();
+        SessionList.ItemsSource = shown;
+        SessionList.Visibility = shown.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (_sessionRows != shown.Count)
+        {
+            _sessionRows = shown.Count;
+            DesiredHeightChanged?.Invoke(CalculateDesiredHeight());
+        }
+    }
+
+    private void SessionLink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = e.Uri.AbsoluteUri, UseShellExecute = true });
+        }
+        catch (System.ComponentModel.Win32Exception) { }
+        e.Handled = true;
+    }
+
+    /// <summary>Server card when live streaming is off: uploads still work.</summary>
+    public void ShowLiveOff()
+    {
+        ServerStatusDot.Fill   = _connectedBrush;
+        ServerGlowDot.Fill     = _connectedBrush;
+        ServerStatusLabel.Text = "Uploads on";
+        ServerStatusText.Text  = "Live off · laps upload after each lap";
+    }
 
     public bool F1ConsoleMode => _settings.F1ConsoleMode;
 
@@ -140,11 +187,38 @@ public partial class DashboardView : UserControl
     // ── Local Server ──────────────────────────────────────────────────────────
 
     /// <summary>Sets the local server address and PIN displayed in the card.</summary>
-    public void SetLocalServerInfo(string address, string pin, int port)
+    public void SetLocalServerInfo(string address, string pin, int port, string dashboardUrl)
     {
         LocalAddressText.Text = address;
         LocalPinText.Text     = pin;
         PortConflictBanner.Visibility = Visibility.Collapsed;
+
+        // Without the PIN, so it can be shown on stream / in a screenshot without giving it away.
+        LocalDashUrlText.Text = dashboardUrl[..dashboardUrl.IndexOf('#')];
+        LocalQrImage.Source = QrImage(dashboardUrl);
+    }
+
+    private static System.Windows.Media.Imaging.BitmapImage QrImage(string text)
+    {
+        using var generator = new QRCoder.QRCodeGenerator();
+        using var data = generator.CreateQrCode(text, QRCoder.QRCodeGenerator.ECCLevel.M);
+        var png = new QRCoder.PngByteQRCode(data).GetGraphic(8);
+
+        var image = new System.Windows.Media.Imaging.BitmapImage();
+        image.BeginInit();
+        image.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+        image.StreamSource = new MemoryStream(png);
+        image.EndInit();
+        image.Freeze();
+        return image;
+    }
+
+    private void ShowQrButton_Click(object sender, RoutedEventArgs e)
+    {
+        var show = QrPanel.Visibility != Visibility.Visible;
+        QrPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        ShowQrButton.Content = show ? "Hide QR" : "📷  Phone dashboard";
+        DesiredHeightChanged?.Invoke(CalculateDesiredHeight());
     }
 
     /// <summary>Updates the connected device count and status dot colour.</summary>
@@ -277,8 +351,11 @@ public partial class DashboardView : UserControl
         _settings.SendCrashReports      = SendCrashReportsToggle.IsChecked     == true;
         var consoleChanged = _settings.F1ConsoleMode != (F1ConsoleToggle.IsChecked == true);
         _settings.F1ConsoleMode         = F1ConsoleToggle.IsChecked            == true;
+        var liveChanged = _settings.LiveStreaming != (LiveStreamingToggle.IsChecked == true);
+        _settings.LiveStreaming         = LiveStreamingToggle.IsChecked        == true;
         _settings.Save();
         if (consoleChanged) F1ConsoleModeChanged?.Invoke(_settings.F1ConsoleMode);
+        if (liveChanged) LiveStreamingChanged?.Invoke(_settings.LiveStreaming);
         ApplySettings();
     }
 
@@ -326,7 +403,9 @@ public partial class DashboardView : UserControl
 
         double h = Base;
         if (SimHealthText.Visibility == Visibility.Visible)    h += 34;  // health hint (two lines)
+        if (SessionList.Visibility == Visibility.Visible)      h += 10 + 18 * _sessionRows; // recent sessions
         if (_settings.ShowLocalWsInfo)                          h += 118; // Local WS card
+        if (_settings.ShowLocalWsInfo && QrPanel.Visibility == Visibility.Visible) h += 166; // QR panel
         if (_settings.ShowLiveTelemetry && _simIsStreaming)     h += 156; // Live Telemetry panel
         if (_settings.ShowConsole)                              h += 172; // Console (MinHeight=160 + margins)
 
