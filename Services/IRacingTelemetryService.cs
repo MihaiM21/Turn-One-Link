@@ -48,7 +48,8 @@ public sealed class IRacingTelemetryService : ITelemetrySource
     private bool _lapTrackingInitialized;
     private int _lastLapSeen;
     private int _lastSectorIndex;
-    private DateTime _lastSectorTransitionAt;
+    // Sector clock in iRacing SessionTime seconds (the sim's own clock), not the PC's.
+    private double _lastSectorTransitionAt;
     private readonly System.Collections.Generic.List<int> _sectorTimesBuffer = new();
     private bool _lapPitLatch;
     private float? _lapStartFuel;
@@ -133,7 +134,7 @@ public sealed class IRacingTelemetryService : ITelemetrySource
                 CurrentTimeText: null,
                 LastTimeText: null,
                 BestTimeText: null,
-                CompletedLaps: d.GetInt("Lap"),
+                CompletedLaps: HasVar(d, "LapCompleted") ? Math.Max(0, d.GetInt("LapCompleted")) : Math.Max(0, d.GetInt("Lap") - 1),
                 Position: d.GetInt("PlayerCarPosition"),
                 CurrentLapMs: (int)(d.GetFloat("LapCurrentLapTime") * 1000),
                 LastLapMs: (int)(d.GetFloat("LapLastLapTime") * 1000),
@@ -263,8 +264,9 @@ public sealed class IRacingTelemetryService : ITelemetrySource
     {
         if (!HasVar(d, "Lat") || !HasVar(d, "Lon")) return (null, null, null);
 
-        double latDeg = d.GetDouble("Lat") * 180.0 / Math.PI;
-        double lonDeg = d.GetDouble("Lon") * 180.0 / Math.PI;
+        // The SDK reports Lat/Lon in decimal degrees (only present in IBT recordings).
+        double latDeg = d.GetDouble("Lat");
+        double lonDeg = d.GetDouble("Lon");
         float altM = HasVar(d, "Alt") ? d.GetFloat("Alt") : 0f;
 
         if (_originLatDeg is null)
@@ -291,7 +293,7 @@ public sealed class IRacingTelemetryService : ITelemetrySource
     {
         int lap = d.GetInt("Lap");
         int sector = DeriveSector(d.GetFloat("LapDistPct"));
-        var now = DateTime.UtcNow;
+        var now = d.GetDouble("SessionTime");
 
         if (!_lapTrackingInitialized)
         {
@@ -307,7 +309,7 @@ public sealed class IRacingTelemetryService : ITelemetrySource
 
         if (sector != _lastSectorIndex)
         {
-            _sectorTimesBuffer.Add((int)(now - _lastSectorTransitionAt).TotalMilliseconds);
+            _sectorTimesBuffer.Add((int)Math.Round((now - _lastSectorTransitionAt) * 1000));
             _lastSectorTransitionAt = now;
             _lastSectorIndex = sector;
         }
@@ -334,6 +336,15 @@ public sealed class IRacingTelemetryService : ITelemetrySource
             bool changed = Math.Abs(currentLapLastLapTime - _pendingBaselineLapLastLapTime) > 0.0001f;
             if (changed || _pendingTicksWaited >= MaxPendingLapTicks)
             {
+                // iRacing reports -1 for a lap it didn't time (reset, tow, lap 0): nothing to send.
+                if (currentLapLastLapTime <= 0)
+                {
+                    _pendingLapNumber = null;
+                    _pendingSectorsMs = null;
+                    return;
+                }
+                var lapTimeMs = (int)Math.Round(currentLapLastLapTime * 1000);
+
                 float? fuelUsed = null;
                 if (_pendingFuelStart is { } startFuel)
                 {
@@ -343,8 +354,8 @@ public sealed class IRacingTelemetryService : ITelemetrySource
 
                 LapCompleted?.Invoke(new T1LapComplete(
                     Lap: pendingLap,
-                    LapTimeMs: (int)(currentLapLastLapTime * 1000),
-                    SectorsMs: _pendingSectorsMs ?? Array.Empty<int>(),
+                    LapTimeMs: lapTimeMs,
+                    SectorsMs: FinalizeSectors(_pendingSectorsMs, lapTimeMs),
                     Valid: null, // iRacing has no native lap-validity flag.
                     Pit: _pendingPit,
                     LapDistM: _cachedTrackLengthM,
@@ -478,6 +489,10 @@ public sealed class IRacingTelemetryService : ITelemetrySource
         if (HasVar(d, "IsReplayPlaying") && d.GetBool("IsReplayPlaying"))
             return T1SimStatus.Replay;
 
+        // Sitting in the garage / menus with the sim running: not driving, so don't record.
+        if (HasVar(d, "IsOnTrack") && !d.GetBool("IsOnTrack"))
+            return T1SimStatus.Paused;
+
         var state = (IRacingSdkEnum.SessionState)d.GetInt("SessionState");
         return state switch
         {
@@ -502,5 +517,19 @@ public sealed class IRacingTelemetryService : ITelemetrySource
             iracingType.Contains("Testing", StringComparison.OrdinalIgnoreCase))
             return T1SessionType.Practice;
         return T1SessionType.Unknown;
+    }
+
+    /// <summary>
+    /// Sector times for <c>lap_complete</c>: only when all three were timed, with the last one taken as
+    /// lap time minus the first two so they always add up. Otherwise none (better than wrong ones).
+    /// </summary>
+    public static int[] FinalizeSectors(int[]? raw, int lapTimeMs)
+    {
+        if (raw is not { Length: 3 } || lapTimeMs <= 0) return Array.Empty<int>();
+        var last = lapTimeMs - raw[0] - raw[1];
+        if (raw[0] <= 0 || raw[1] <= 0 || last <= 0) return Array.Empty<int>();
+        // A timing glitch (e.g. a reset mid-lap) shows up as a last sector far from what was measured.
+        if (Math.Abs(last - raw[2]) > Math.Max(500, lapTimeMs / 50)) return Array.Empty<int>();
+        return new[] { raw[0], raw[1], last };
     }
 }
