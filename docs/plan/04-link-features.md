@@ -5,26 +5,26 @@ and getting out of the way**. IDs are referenced from [10-roadmap.md](10-roadmap
 
 ## Phase 0 — make it shippable
 
-| ID | Feature | Notes | Depends on |
-|---|---|---|---|
-| LF-01 | **Velopack installer + auto-update** | Per-user install, delta updates, `beta`/`stable` channels; update check on start and every 6 h; "Restart to update" when no sim is running, never mid-session. | HCR-014 for the feed (GitHub Releases as fallback) |
-| LF-02 | **Code signing** | Azure Trusted Signing in CI (T3); sign exe + installer. | CI ([11](11-quality-gates-and-release.md)) |
-| LF-03 | **Crash reporting** | Sentry, opt-out toggle, no telemetry payloads in events (T4). | — |
-| LF-04 | **Production config compiled in** | No `.env` shipped; `%LOCALAPPDATA%\TurnOneLink\overrides.env` for power users. | L-P0-01 |
+| ID | Feature | Notes | Depends on | Status |
+|---|---|---|---|---|
+| LF-01 | **Velopack installer + auto-update** | Per-user install, delta updates, `beta`/`stable` channels; update check on start and every 6 h; "Restart to update" when no sim is running, never mid-session. | HCR-014 for the feed (GitHub Releases as fallback) | done (PR #3) |
+| LF-02 | **Code signing** | Azure Trusted Signing in CI (T3); sign exe + installer. | CI ([11](11-quality-gates-and-release.md)) | blocked (on signing secrets in CI) |
+| LF-03 | **Crash reporting** | Sentry, opt-out toggle, no telemetry payloads in events (T4). | — | done (PR #3) — off until a Sentry DSN is set |
+| LF-04 | **Production config compiled in** | No `.env` shipped; `%LOCALAPPDATA%\TurnOneLink\overrides.env` for power users. | L-P0-01 | done (PR #3) |
 
 ## Phase 1 — closed beta
 
-| ID | Feature | Notes | Depends on |
-|---|---|---|---|
-| LF-10 | **Device pairing login** | "Sign in" opens the browser to `turnonehub.com/link?code=…`; Link polls; token in DPAPI store; "Signed in as X · Sign out · Manage devices". No password field in Link. | HCR-006 |
-| LF-11 | **Local recorder** | v2 session file per session ([07](07-data-model-and-contracts.md) §2); crash-safe; replaces `SessionLoggingService`. | L-P0-05…09 |
-| LF-12 | **Upload queue** | Outbox folder; uploads each lap when it closes, finalises at `session_end`; back-off; resumes after restart; per-session state *Recording · Uploading · Uploaded · Failed (retry)*. | HCR-007 |
-| LF-13 | **Session list** | Last 50 sessions: sim, track, car, laps, best, upload state, "Open on web". Import old JSONL sessions from the previous logger (one-time). | LF-11, LF-12 |
-| LF-14 | **Live toggle** | "Live" switch (off by default) for spectate/overlay; shows viewer count. Uses existing WSS. | H-03 ownership fix |
-| LF-15 | **F1 console mode** | "I play on PS5/Xbox" → listens for UDP without process detection; shows PC IP + port and a 4-step guide with screenshots (Settings → Telemetry → UDP On, IP, port 20777, format 2025). Firewall rule added by the installer. | L-P1-05 |
-| LF-16 | **Per-game health check** | Per sim: "Game detected ✓ · Data arriving ✓ 20 Hz · Lap timing ✓ · Uploading ✓". Explains the fix when a step fails (e.g. F1 UDP off, wrong format, port busy). | — |
-| LF-17 | **LAN phone dashboard** | Link serves a static web page; QR code encodes `http://<lan-ip>:<port>/#<pin>`; screens: delta bar, lap/sector times, fuel laps left, tyre temps/pressures, gear/RPM. Dark theme from turn-one-media tokens. | L-P0-11, L-P2-03 |
-| LF-18 | **Report a problem** | Zips last 2 session files (opt-in), logs, settings (no token), app version → uploads to Hub support endpoint or opens an email. | — |
+| ID | Feature | Notes | Depends on | Status |
+|---|---|---|---|---|
+| LF-10 | **Device pairing login** | "Sign in" opens the browser to `turnonehub.com/link?code=…`; Link polls; token in DPAPI store; "Signed in as X · Sign out · Manage devices". No password field in Link. | HCR-006 | done (PR #4) |
+| LF-11 | **Local recorder** | v2 session file per session ([07](07-data-model-and-contracts.md) §2); crash-safe; replaces `SessionLoggingService`. | L-P0-05…09 | done (PR #7) |
+| LF-12 | **Upload queue** | Outbox folder; uploads each lap when it closes, finalises at `session_end`; back-off; resumes after restart; per-session state *Recording · Uploading · Uploaded · Failed (retry)*. | HCR-007 | done (PR #7) |
+| LF-13 | **Session list** | Last 50 sessions: sim, track, car, laps, best, upload state, "Open on web". Import old JSONL sessions from the previous logger (one-time). | LF-11, LF-12 | done (PR #8) — no JSONL import |
+| LF-14 | **Live toggle** | "Live" switch (off by default) for spectate/overlay; shows viewer count. Uses existing WSS. | H-03 ownership fix | done (PR #8) — no viewer count yet |
+| LF-15 | **F1 console mode** | "I play on PS5/Xbox" → listens for UDP without process detection; shows PC IP + port and a 4-step guide with screenshots (Settings → Telemetry → UDP On, IP, port 20777, format 2025). Firewall rule added by the installer. | L-P1-05 | done (PR #8) — console log guide, no screenshots |
+| LF-16 | **Per-game health check** | Per sim: "Game detected ✓ · Data arriving ✓ 20 Hz · Lap timing ✓ · Uploading ✓". Explains the fix when a step fails (e.g. F1 UDP off, wrong format, port busy). | — | done (PR #8) |
+| LF-17 | **LAN phone dashboard** | Link serves a static web page; QR code encodes `http://<lan-ip>:<port>/#<pin>`; screens: delta bar, lap/sector times, fuel laps left, tyre temps/pressures, gear/RPM. Dark theme from turn-one-media tokens. | L-P0-11, L-P2-03 | done (PR #9) |
+| LF-18 | **Report a problem** | Zips last 2 session files (opt-in), logs, settings (no token), app version → uploads to Hub support endpoint or opens an email. | — | done — saves a redacted zip and opens it in Explorer; no Hub support endpoint yet |
 
 ## Phase 2 — public launch
 

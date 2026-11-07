@@ -5,6 +5,18 @@ IDs: `L-` Link bugs ([03](03-link-bugs.md)), `LF-` Link features ([04](04-link-f
 `H-` Hub fixes ([05](05-hub-security-and-fixes.md)), `HF-` Hub features ([06](06-hub-features.md)),
 `HCR-` ([hub-change-requests](hub-change-requests/README.md)).
 
+## Progress — 2026-11-07
+
+Code for Phase 0 and Phase 1 is merged (Hub `dev` PRs #139–#147, Link `master` PRs #3–#10, plus LF-18).
+Nothing new is on prod yet. Still open before the beta:
+
+- **Deploy** Hub `dev` → prod; then run `POST /api/simracing/admin/leaderboards/backfill` once and set
+  `TurnOneLink:DownloadUrl`, `TurnOneLink:MinUploadVersion` and both Turnstile keys (or neither).
+- **Secrets the CI needs:** code signing (LF-02) and the Sentry DSN (LF-03).
+- **H-01 history purge** (not run) · H-14 · H-15 · H-18 · L-P1-03 rest · L-P1-07…13.
+- **Tests only a person can do:** clean Windows 11 VM install + N-1 → N update; 2 h each in ACC, F1 25 and
+  iRacing; F1 on a console; the phone dashboard on a real phone; the leaderboard query on Postgres.
+
 ## Phase 0 — Make it safe and shippable · 4 Nov – 20 Dec 2026
 
 **Hub (security first — nothing else starts on the Hub before H-01…H-05):**

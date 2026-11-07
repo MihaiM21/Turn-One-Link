@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | draft |
+| **Status** | consent on dev (2026-11-07); tips + feedback draft |
 | **Requested by** | turn-one-link — HF-07, HF-16 (decisions D8, D12) |
 | **Needed by** | Phase 1 (consent screen) · Phase 2 (tips + feedback) |
 | **Breaking?** | **No — additive only.** Existing `CoachingController` routes keep their shape; the rule-based engine is wired behind `GET sessions/{id}/tips`. |
@@ -48,4 +48,10 @@ Export admin-only, audited, stored encrypted, auto-deleted after 30 days.
 Consent screen first (beta), tips/feedback at launch. Rollback = old heuristic.
 
 ## Implementation notes
-_(Hub-side session fills this in.)_
+**Consent (Phase 1) — merged to `dev` in Turn-One PR #147, 2026-11-07.**
+- `AiConsent` table (one row per user: `Granted`, `Version`, `GrantedAt`, `WithdrawnAt`); migration `AddAiConsent`.
+- `GET /api/simracing/ai-consent` → `{ granted, version, currentVersion }`; `PUT` with `{ granted, version }`.
+  A grant must name `AiConsent.CurrentVersion` (`"2026-11"`), so nobody agrees to an old text;
+  withdrawing keeps the row and sets `WithdrawnAt`.
+- Off by default. Website: "Your data" card on `/link`.
+- Not done: coach tips, 👍/👎 feedback, and the dataset export that honours consent (Phase 2).
