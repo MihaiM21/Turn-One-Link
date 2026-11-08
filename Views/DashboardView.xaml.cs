@@ -281,7 +281,23 @@ public partial class DashboardView : UserControl
     /// </summary>
     public void UpdateLiveTelemetry(float speedKmh, int gear, int rpm, int maxRpm, float throttle, float brake)
     {
+        // ACC sends physics up to ~200 times a second. Queuing one UI update per packet at Normal
+        // priority outruns WPF's rendering, so the HUD showed values from a backlog — a visible lag.
+        // Instead keep only the newest values and have at most one update waiting, at Render
+        // priority: each frame the screen draws shows the latest packet.
+        _hudLatest = new HudValues(speedKmh, gear, rpm, maxRpm, throttle, brake);
+        if (Interlocked.Exchange(ref _hudUpdatePending, 1) == 1) return;
+
         Dispatcher.InvokeAsync(() =>
+        {
+            Interlocked.Exchange(ref _hudUpdatePending, 0);
+            RenderLiveTelemetry(_hudLatest!);
+        }, System.Windows.Threading.DispatcherPriority.Render);
+    }
+
+    private void RenderLiveTelemetry(HudValues v)
+    {
+        var (speedKmh, gear, rpm, maxRpm, throttle, brake) = v;
         {
             _simIsStreaming = true;
 
@@ -292,7 +308,7 @@ public partial class DashboardView : UserControl
             // Speed
             LiveSpeedText.Text = ((int)speedKmh).ToString();
 
-            // Gear: raw ACC value → display string (0=R, 1=N, 2+=1st, 2nd, …)
+            // Gear: T1 convention → display string (0=R, 1=N, 2+=1st, 2nd, …)
             LiveGearText.Text = gear switch
             {
                 <= 0 => "R",
@@ -315,8 +331,12 @@ public partial class DashboardView : UserControl
                 ThrottleBar.Width = ThrottleBarContainer.ActualWidth * throttleFraction;
                 BrakeBar.Width    = BrakeBarContainer.ActualWidth    * brakeFraction;
             }
-        });
+        }
     }
+
+    private sealed record HudValues(float SpeedKmh, int Gear, int Rpm, int MaxRpm, float Throttle, float Brake);
+    private volatile HudValues? _hudLatest;
+    private int _hudUpdatePending;
 
     /// <summary>
     /// Hides the live telemetry panel when the sim disconnects.
