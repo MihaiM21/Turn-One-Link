@@ -266,12 +266,11 @@ public sealed class AccTelemetrySourceAdapter : ITelemetrySource
 
     // ── v1 mapping (unchanged) ───────────────────────────────────────────────────────────
 
-    private static T1PhysicsFrame MapPhysics(SPageFilePhysics p)
+    internal static T1PhysicsFrame MapPhysics(SPageFilePhysics p)
     {
-        // ACC raw Gear convention normalized to T1's 0=R,1=N,2=1st...
-        // (verbatim from the previous inline logic in T1TelemetryMapper.BuildFrame)
-        int gear = p.Gear - 1;
-        if (gear < 0) gear = 0;
+        // ACC's raw Gear is already T1's 0=R, 1=N, 2=1st..., so it passes through unchanged.
+        // (Shifting it by one showed every gear one lower in the HUD and on the phone dash.)
+        int gear = Math.Max(0, p.Gear);
 
         return new T1PhysicsFrame(
             PacketId: p.PacketId,

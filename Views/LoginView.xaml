@@ -43,7 +43,7 @@
                 <TextBlock Text="TURN ONE LINK" HorizontalAlignment="Center"
                            FontFamily="Segoe UI" FontSize="16" FontWeight="Bold"
                            Foreground="White"/>
-                <TextBlock Text="Telemetry Data Acquisition" HorizontalAlignment="Center"
+                <TextBlock Text="Sim racing telemetry for Turn One" HorizontalAlignment="Center"
                            FontFamily="Segoe UI" FontSize="11"
                            Foreground="{StaticResource TextSecondaryBrush}"
                            Margin="0,4,0,0"/>
