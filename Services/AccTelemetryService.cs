@@ -25,6 +25,13 @@ public class AccTelemetryService : IDisposable
     public event Action<SPageFileStatic>? StaticInfoUpdated;
     public event Action<Exception>? OnError;
 
+    /// <summary>
+    /// ACC creates its shared memory only once the game has loaded, so for a while after the process
+    /// starts there is nothing to open. That is normal, not an error: retry this often, quietly.
+    /// </summary>
+    internal static readonly TimeSpan OpenRetryInterval = TimeSpan.FromSeconds(1);
+    private DateTime _nextOpenAttempt = DateTime.MinValue;
+
     private int _lastPhysicsPacketId = -1;
     private int _lastGraphicsPacketId = -1;
     private volatile bool _staticRefreshRequested;
@@ -58,7 +65,9 @@ public class AccTelemetryService : IDisposable
         {
             try
             {
-                EnsureMappedFiles();
+                // Until the next attempt is due the views stay null and the reads below do nothing.
+                if (_physicsFile != null || DateTime.UtcNow >= _nextOpenAttempt)
+                    EnsureMappedFiles();
 
                 if ((_staticRefreshRequested || !staticRead) && _staticView != null)
                 {
@@ -91,9 +100,16 @@ public class AccTelemetryService : IDisposable
                     }
                 }
             }
+            catch (System.IO.FileNotFoundException)
+            {
+                // Shared memory not there yet (game still loading) or gone (game closing).
+                ResetMappedFiles();
+                _nextOpenAttempt = DateTime.UtcNow + OpenRetryInterval;
+            }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 ResetMappedFiles();
+                _nextOpenAttempt = DateTime.UtcNow + OpenRetryInterval;
                 if (!hasLoggedError)
                 {
                     OnError?.Invoke(ex);

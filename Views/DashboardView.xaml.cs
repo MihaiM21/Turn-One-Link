@@ -74,6 +74,14 @@ public partial class DashboardView : UserControl
 
         VersionLabel.Text = $"v{AppInfo.Version}";
         ApplySettings();
+
+        Loaded += (_, _) => RequestResize();
+        // Wrapped text changes height with width.
+        SizeChanged += (_, e) => { if (e.WidthChanged) RequestResize(); };
+        PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Escape && SettingsOverlay.Visibility == Visibility.Visible) CloseSettings();
+        };
     }
 
     public void SetUser(string displayName)
@@ -91,32 +99,44 @@ public partial class DashboardView : UserControl
 
     public bool LiveStreaming => _settings.LiveStreaming;
 
-    /// <summary>A row of the recent-sessions list.</summary>
-    public sealed record SessionRow(string Title, string State, System.Windows.Media.Brush StateBrush, Uri WebUrl);
+    /// <summary>A row of the recent-sessions list. <paramref name="WebUrl"/> null hides the open button.</summary>
+    public sealed record SessionRow(string Title, string Detail, string State, System.Windows.Media.Brush StateBrush, Uri? WebUrl)
+    {
+        public Visibility OpenVisibility => WebUrl is null ? Visibility.Collapsed : Visibility.Visible;
+    }
 
     private int _sessionRows;
 
     /// <summary>Shows the newest sessions (at most four) under the server status.</summary>
     public void SetSessions(IReadOnlyList<SessionRow> rows)
     {
-        var shown = rows.Take(4).ToList();
+        var shown = rows.Take(3).ToList();
         SessionList.ItemsSource = shown;
-        SessionList.Visibility = shown.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        SessionSection.Visibility = shown.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         if (_sessionRows != shown.Count)
         {
             _sessionRows = shown.Count;
-            DesiredHeightChanged?.Invoke(CalculateDesiredHeight());
+            RequestResize();
         }
     }
 
-    private void SessionLink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+    private void SessionOpen_Click(object sender, RoutedEventArgs e)
     {
+        if ((sender as FrameworkElement)?.Tag is not Uri uri) return;
         try
         {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = e.Uri.AbsoluteUri, UseShellExecute = true });
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = uri.AbsoluteUri, UseShellExecute = true });
         }
         catch (System.ComponentModel.Win32Exception) { }
-        e.Handled = true;
+    }
+
+    private void SetServerSubText(string? text)
+    {
+        var visible = !string.IsNullOrEmpty(text);
+        ServerSubText.Text = text ?? "";
+        if ((ServerSubText.Visibility == Visibility.Visible) == visible) return;
+        ServerSubText.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        RequestResize();
     }
 
     /// <summary>Server card when live streaming is off: uploads still work.</summary>
@@ -125,7 +145,8 @@ public partial class DashboardView : UserControl
         ServerStatusDot.Fill   = _connectedBrush;
         ServerGlowDot.Fill     = _connectedBrush;
         ServerStatusLabel.Text = "Uploads on";
-        ServerStatusText.Text  = "Live off · laps upload after each lap";
+        ServerStatusText.Text  = "Live streaming off";
+        SetServerSubText("Laps upload after each lap.");
     }
 
     public bool F1ConsoleMode => _settings.F1ConsoleMode;
@@ -134,10 +155,14 @@ public partial class DashboardView : UserControl
     public void SetTelemetryHealth(string? hint)
     {
         var visible = !string.IsNullOrEmpty(hint);
+        var changed = visible && SimHealthText.Text != hint;
         if (visible) SimHealthText.Text = hint;
-        if ((SimHealthText.Visibility == Visibility.Visible) == visible) return;
-        SimHealthText.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-        DesiredHeightChanged?.Invoke(CalculateDesiredHeight());
+        if ((SimHealthPanel.Visibility == Visibility.Visible) != visible)
+        {
+            SimHealthPanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            changed = true;
+        }
+        if (changed) RequestResize(); // a new hint can wrap to a different number of lines
     }
 
     public void ApplySimStatus(SimStatus status, string? gameName)
@@ -161,27 +186,33 @@ public partial class DashboardView : UserControl
         ServerGlowDot.Fill     = brush;
         ServerStatusLabel.Text = connected ? "Online" : "Offline";
         ServerStatusText.Text  = connected ? "Connected" : "Disconnected";
+        SetServerSubText(null);
     }
 
     public void ApplyServerState(TelemetryConnectionState state)
     {
         SolidColorBrush brush;
-        string label, text;
+        string label, text, sub;
         switch (state)
         {
             case TelemetryConnectionState.Connected:
-                brush = _connectedBrush;   label = "Online";       text = "Connected";      break;
+                brush = _connectedBrush;    label = "Online";       text = "Streaming live";
+                sub = "Spectators and overlays see you now. Laps upload after each lap."; break;
             case TelemetryConnectionState.Connecting:
-                brush = _connectingBrush;  label = "Connecting";   text = "Connecting...";  break;
+                brush = _connectingBrush;   label = "Connecting";   text = "Connecting…";
+                sub = "Laps are saved on this PC meanwhile."; break;
             case TelemetryConnectionState.Reconnecting:
-                brush = _connectingBrush;  label = "Reconnecting"; text = "Reconnecting..."; break;
+                brush = _connectingBrush;   label = "Reconnecting"; text = "Reconnecting…";
+                sub = "Laps are saved on this PC meanwhile."; break;
             default:
-                brush = _disconnectedBrush; label = "Offline";     text = "Disconnected";   break;
+                brush = _disconnectedBrush; label = "Offline";      text = "Not connected";
+                sub = "Laps are saved on this PC and upload when you're back online."; break;
         }
         ServerStatusDot.Fill   = brush;
         ServerGlowDot.Fill     = brush;
         ServerStatusLabel.Text = label;
         ServerStatusText.Text  = text;
+        SetServerSubText(sub);
     }
 
     // ── Local Server ──────────────────────────────────────────────────────────
@@ -217,8 +248,8 @@ public partial class DashboardView : UserControl
     {
         var show = QrPanel.Visibility != Visibility.Visible;
         QrPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-        ShowQrButton.Content = show ? "Hide QR" : "📷  Phone dashboard";
-        DesiredHeightChanged?.Invoke(CalculateDesiredHeight());
+        ShowQrText.Text = show ? "Hide QR code" : "Show QR code";
+        RequestResize();
     }
 
     /// <summary>Updates the connected device count and status dot colour.</summary>
@@ -237,6 +268,7 @@ public partial class DashboardView : UserControl
             $"Port {port} is already in use by another application. " +
             $"Click the edit button to pick another port (e.g. {port + 1}) — Turn One Link will restart.";
         PortConflictBanner.Visibility = Visibility.Visible;
+        RequestResize();
 
         // Grey-out the local card to indicate it's non-functional
         LocalAddressText.Text     = $"ws://—:{port}";
@@ -302,8 +334,11 @@ public partial class DashboardView : UserControl
             _simIsStreaming = true;
 
             // Honour the user's setting — only reveal if enabled
-            if (_settings.ShowLiveTelemetry)
+            if (_settings.ShowLiveTelemetry && LiveTelemetryPanel.Visibility != Visibility.Visible)
+            {
                 LiveTelemetryPanel.Visibility = Visibility.Visible;
+                RequestResize();
+            }
 
             // Speed
             LiveSpeedText.Text = ((int)speedKmh).ToString();
@@ -319,18 +354,10 @@ public partial class DashboardView : UserControl
             // RPM
             LiveRpmText.Text = rpm.ToString("N0");
 
-            // Bars — width proportional to container ActualWidth
-            double containerWidth = RpmBarContainer.ActualWidth;
-            if (containerWidth > 0)
-            {
-                double rpmFraction      = maxRpm > 0 ? Math.Clamp((double)rpm / maxRpm, 0, 1) : 0;
-                double throttleFraction = Math.Clamp(throttle, 0f, 1f);
-                double brakeFraction    = Math.Clamp(brake,    0f, 1f);
-
-                RpmBar.Width      = containerWidth * rpmFraction;
-                ThrottleBar.Width = ThrottleBarContainer.ActualWidth * throttleFraction;
-                BrakeBar.Width    = BrakeBarContainer.ActualWidth    * brakeFraction;
-            }
+            // Bars: the fill spans the track and is scaled, so no layout pass per frame.
+            RpmScale.ScaleX      = maxRpm > 0 ? Math.Clamp((double)rpm / maxRpm, 0, 1) : 0;
+            ThrottleScale.ScaleX = Math.Clamp(throttle, 0f, 1f);
+            BrakeScale.ScaleX    = Math.Clamp(brake,    0f, 1f);
         }
     }
 
@@ -347,20 +374,25 @@ public partial class DashboardView : UserControl
         {
             _simIsStreaming = false;
             LiveTelemetryPanel.Visibility = Visibility.Collapsed;
-            DesiredHeightChanged?.Invoke(CalculateDesiredHeight());
+            RequestResize();
         });
     }
 
     // ── Settings overlay ─────────────────────────────────────────────────────
 
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
-        => SettingsOverlay.Visibility = Visibility.Visible;
+    {
+        SettingsOverlay.Visibility = Visibility.Visible;
+        RequestResize();
+    }
 
-    private void CloseSettingsButton_Click(object sender, RoutedEventArgs e)
-        => SettingsOverlay.Visibility = Visibility.Collapsed;
+    private void CloseSettingsButton_Click(object sender, RoutedEventArgs e) => CloseSettings();
 
-    private void SettingsBackdrop_MouseDown(object sender, MouseButtonEventArgs e)
-        => SettingsOverlay.Visibility = Visibility.Collapsed;
+    private void CloseSettings()
+    {
+        SettingsOverlay.Visibility = Visibility.Collapsed;
+        RequestResize();
+    }
 
     private void SettingsToggle_Changed(object sender, RoutedEventArgs e)
     {
@@ -444,28 +476,39 @@ public partial class DashboardView : UserControl
         LocalDevicesCard.Visibility =
             _settings.ShowLocalWsInfo ? Visibility.Visible : Visibility.Collapsed;
 
-        DesiredHeightChanged?.Invoke(CalculateDesiredHeight());
+        RequestResize();
     }
 
+    private bool _resizePending;
+    private double _reportedHeight;
+
     /// <summary>
-    /// Calculates the content height the host window should adopt based on visible panels.
-    /// Chrome overhead (shadow margins + titlebar) is added by the caller.
+    /// Asks the window to fit the visible content: the dashboard, or the settings page when it is
+    /// open and taller. Measured, not estimated, so wrapped text and hidden panels are always right.
+    /// Coalesced to one measurement per layout pass.
     /// </summary>
-    private double CalculateDesiredHeight()
+    private void RequestResize()
     {
-        // Base: greeting row + spacers + Sim card + Server card + padding + version label
-        // (always visible regardless of settings)
-        const double Base = 300;
+        if (_resizePending) return;
+        _resizePending = true;
+        Dispatcher.BeginInvoke(() =>
+        {
+            _resizePending = false;
+            var height = MeasureHeight(ContentRoot);
+            if (SettingsOverlay.Visibility == Visibility.Visible)
+                height = Math.Max(height, MeasureHeight(SettingsContent));
+            if (Math.Abs(height - _reportedHeight) < 1) return;
+            _reportedHeight = height;
+            DesiredHeightChanged?.Invoke(height);
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
+    }
 
-        double h = Base;
-        if (SimHealthText.Visibility == Visibility.Visible)    h += 34;  // health hint (two lines)
-        if (SessionList.Visibility == Visibility.Visible)      h += 10 + 18 * _sessionRows; // recent sessions
-        if (_settings.ShowLocalWsInfo)                          h += 118; // Local WS card
-        if (_settings.ShowLocalWsInfo && QrPanel.Visibility == Visibility.Visible) h += 166; // QR panel
-        if (_settings.ShowLiveTelemetry && _simIsStreaming)     h += 156; // Live Telemetry panel
-        if (_settings.ShowConsole)                              h += 172; // Console (MinHeight=160 + margins)
-
-        return h;
+    /// <summary>Height <paramref name="content"/> wants at the current width (margins included).</summary>
+    private double MeasureHeight(FrameworkElement content)
+    {
+        var width = ActualWidth > 0 ? ActualWidth : 340;
+        content.Measure(new System.Windows.Size(width, double.PositiveInfinity));
+        return Math.Ceiling(content.DesiredSize.Height);
     }
 
     // ── Port editor ───────────────────────────────────────────────────────────

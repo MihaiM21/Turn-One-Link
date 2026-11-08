@@ -255,11 +255,8 @@ public partial class MainWindow : Window
         if (_updates?.CompatMessage is { } compat) _dashboardView.AddConsoleLog($"[UPDATE] {compat}");
         _connection.Start();
 
-        Dispatcher.BeginInvoke(() =>
-        {
-            MinHeight = 340;
-            Height    = 640;
-        }, System.Windows.Threading.DispatcherPriority.Render);
+        // The dashboard reports its measured height once it has loaded (DesiredHeightChanged).
+        MinHeight = 200;
     }
 
     // ── Local WebSocket Server ────────────────────────────────────────────────
@@ -385,6 +382,8 @@ public partial class MainWindow : Window
 
     private static readonly System.Windows.Media.SolidColorBrush UploadedBrush = new(System.Windows.Media.Color.FromRgb(0x22, 0xC5, 0x5E));
     private static readonly System.Windows.Media.SolidColorBrush PendingBrush = new(System.Windows.Media.Color.FromRgb(0xFF, 0xC1, 0x4B));
+    private static readonly System.Windows.Media.SolidColorBrush LiveBrush = new(System.Windows.Media.Color.FromRgb(0xFF, 0x4D, 0x6A));
+    private static readonly System.Windows.Media.SolidColorBrush MutedBrush = new(System.Windows.Media.Color.FromRgb(0x76, 0x76, 0x84));
     private static readonly System.Windows.Media.SolidColorBrush FailedBrush = new(System.Windows.Media.Color.FromRgb(0xEF, 0x44, 0x44));
 
     private void RefreshSessions()
@@ -392,17 +391,20 @@ public partial class MainWindow : Window
         if (_dashboardView == null) return;
         var rows = _history.Entries.Select(e =>
         {
-            var (state, brush) = e.Upload switch
+            var (state, tone) = Services.Upload.SessionRowText.State(e);
+            var brush = tone switch
             {
-                Services.Upload.UploadState.Uploaded => ("Uploaded", UploadedBrush),
-                Services.Upload.UploadState.Failed => ("Waiting for network", FailedBrush),
-                Services.Upload.UploadState.Uploading => ("Uploading…", PendingBrush),
-                _ => (e.Ended ? "Waiting" : "Recording", PendingBrush),
+                Services.Upload.SessionRowText.Tone.Done => UploadedBrush,
+                Services.Upload.SessionRowText.Tone.Problem => FailedBrush,
+                Services.Upload.SessionRowText.Tone.Live => LiveBrush,
+                Services.Upload.SessionRowText.Tone.Muted => MutedBrush,
+                _ => PendingBrush,
             };
-            var best = e.BestLapMs is { } ms ? $" · {ms / 60000}:{ms % 60000 / 1000:00}.{ms % 1000:000}" : "";
-            var title = $"{(string.IsNullOrWhiteSpace(e.Track) ? e.Sim : e.Track)} · {e.Laps} laps{best}";
-            return new Views.DashboardView.SessionRow(title, state, brush,
-                new Uri($"https://turnonehub.com/simracing/sessions/{e.SessionId}"));
+            var url = Services.Upload.SessionRowText.HasWebPage(e)
+                ? new Uri($"https://turnonehub.com/simracing/sessions/{e.SessionId}")
+                : null;
+            return new Views.DashboardView.SessionRow(
+                Services.Upload.SessionRowText.Title(e), Services.Upload.SessionRowText.Detail(e), state, brush, url);
         }).ToList();
         _dashboardView.SetSessions(rows);
     }
@@ -741,16 +743,18 @@ public partial class MainWindow : Window
     // ── Window sizing ─────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Total non-content pixels the window adds on top of the dashboard's own height.
-    /// = shadow margin (20×2) + title bar (48) + dashboard grid margin (12+16).
+    /// Non-content pixels the window adds on top of the dashboard's measured height (which already
+    /// includes its own margins) = shadow margin (20×2) + title bar (48).
     /// </summary>
-    private const double ChromeOverhead = 116;
+    private const double ChromeOverhead = 90; // +2 so DPI rounding never shows a scrollbar
 
     /// <summary>
     /// Smoothly resizes the window to <paramref name="targetHeight"/> in 200 ms.
     /// </summary>
     private void AnimateWindowHeight(double targetHeight)
     {
+        // Never taller than the screen: past that the dashboard scrolls instead.
+        targetHeight = Math.Min(targetHeight, SystemParameters.WorkArea.Height);
         var animation = new DoubleAnimation(
             targetHeight,
             new Duration(TimeSpan.FromMilliseconds(200)))

@@ -3,437 +3,289 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Background="Transparent">
 
-    <Grid Margin="20,12,20,16">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="10"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="8"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="8"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="8"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
+    <Grid>
+        <!-- ══ Dashboard ══════════════════════════════════════════════════════════════
+             The window sizes itself to ContentRoot's measured height (see RequestResize);
+             the ScrollViewer only matters when that is taller than the screen. -->
+        <ScrollViewer x:Name="ContentScroll" VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled" Focusable="False">
+            <StackPanel x:Name="ContentRoot" Margin="16,14,16,16">
 
-        <!-- User greeting -->
-        <Grid Grid.Row="0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="1">
-                <TextBlock x:Name="GreetingText" Text="Welcome back"
-                           FontFamily="Segoe UI" FontSize="11"
-                           Foreground="{StaticResource TextSecondaryBrush}"/>
-                <TextBlock x:Name="UserNameText" Text="Driver"
-                           FontFamily="Segoe UI" FontSize="15" FontWeight="SemiBold"
-                           Foreground="White" Margin="0,1,0,0"/>
-            </StackPanel>
-            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top">
-                <Button x:Name="SettingsButton"
-                        Style="{StaticResource GhostButton}"
-                        Content="⚙" FontSize="14"
-                        Height="32" Width="32"
-                        ToolTip="Settings"
-                        Margin="0,0,2,0"
-                        Click="SettingsButton_Click"/>
-                <Button Style="{StaticResource GhostButton}"
-                        Content="Sign out"
-                        Click="SignOutButton_Click"/>
-            </StackPanel>
-        </Grid>
-
-        <!-- Sim Game connection card -->
-        <Border Grid.Row="2"
-                Background="{StaticResource SurfaceBrush}"
-                CornerRadius="12"
-                BorderThickness="1"
-                BorderBrush="{StaticResource BorderBrush}">
-            <Grid Margin="16,12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="4"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-
-                <TextBlock Grid.Row="0" Grid.Column="0"
-                           Text="SIM GAME" FontFamily="Segoe UI" FontSize="10"
-                           FontWeight="Medium" Foreground="{StaticResource TextSecondaryBrush}"/>
-
-                <StackPanel Grid.Row="0" Grid.Column="1"
-                            Orientation="Horizontal"
-                            VerticalAlignment="Center">
-                    <TextBlock x:Name="SimStatusLabel"
-                               Text="Disconnected"
-                               FontFamily="Segoe UI" FontSize="11"
-                               Foreground="{StaticResource TextSecondaryBrush}"
-                               VerticalAlignment="Center"
-                               Margin="0,0,8,0"/>
-                    <Grid VerticalAlignment="Center">
-                        <Ellipse x:Name="SimGlowDot" Width="24" Height="24" Opacity="0.4" Fill="Red">
-                            <Ellipse.Effect>
-                                <BlurEffect Radius="12"/>
-                            </Ellipse.Effect>
-                        </Ellipse>
-                        <Ellipse x:Name="SimStatusDot" Width="8" Height="8" Fill="Red"
-                                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Grid>
-                </StackPanel>
-
-                <TextBlock x:Name="SimGameName" Grid.Row="2" Grid.Column="0"
-                           Text="No game detected"
-                           FontFamily="Segoe UI" FontSize="14" FontWeight="SemiBold"
-                           Foreground="White"/>
-
-                <!-- Telemetry health check (LF-16): why no data is arriving, and how to fix it -->
-                <TextBlock x:Name="SimHealthText" Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
-                           Visibility="Collapsed" TextWrapping="Wrap" Margin="0,6,0,0"
-                           FontFamily="Segoe UI" FontSize="11" Foreground="#FFC14B"/>
-            </Grid>
-        </Border>
-
-        <!-- TurnOne Server connection card -->
-        <Border Grid.Row="4"
-                Background="{StaticResource SurfaceBrush}"
-                CornerRadius="12"
-                BorderThickness="1"
-                BorderBrush="{StaticResource BorderBrush}">
-            <Grid Margin="16,12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="4"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-
-                <TextBlock Grid.Row="0" Grid.Column="0"
-                           Text="TURN ONE SERVERS" FontFamily="Segoe UI" FontSize="10"
-                           FontWeight="Medium"
-                           Foreground="{StaticResource TextSecondaryBrush}"/>
-
-                <StackPanel Grid.Row="0" Grid.Column="1"
-                            Orientation="Horizontal"
-                            VerticalAlignment="Center">
-                    <TextBlock x:Name="ServerStatusLabel"
-                               Text="Online"
-                               FontFamily="Segoe UI" FontSize="11"
-                               Foreground="{StaticResource TextSecondaryBrush}"
-                               VerticalAlignment="Center"
-                               Margin="0,0,8,0"/>
-                    <Grid VerticalAlignment="Center">
-                        <Ellipse x:Name="ServerGlowDot" Width="24" Height="24" Opacity="0.4" Fill="#FF00FF7F">
-                            <Ellipse.Effect>
-                                <BlurEffect Radius="12"/>
-                            </Ellipse.Effect>
-                        </Ellipse>
-                        <Ellipse x:Name="ServerStatusDot" Width="8" Height="8" Fill="#FF00FF7F"
-                                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Grid>
-                </StackPanel>
-
-                <TextBlock x:Name="ServerStatusText" Grid.Row="2" Grid.Column="0"
-                           Text="Connected"
-                           FontFamily="Segoe UI" FontSize="14" FontWeight="SemiBold"
-                           Foreground="White"/>
-
-                <!-- Recent sessions and their upload state (LF-13) -->
-                <ItemsControl x:Name="SessionList" Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
-                              Margin="0,8,0,0" Visibility="Collapsed">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Grid Margin="0,2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="{Binding Title}" TextTrimming="CharacterEllipsis"
-                                           FontFamily="Segoe UI" FontSize="11" Foreground="White"/>
-                                <TextBlock Grid.Column="1" Text="{Binding State}" Margin="8,0"
-                                           FontFamily="Segoe UI" FontSize="11" Foreground="{Binding StateBrush}"/>
-                                <TextBlock Grid.Column="2">
-                                    <Hyperlink NavigateUri="{Binding WebUrl}" RequestNavigate="SessionLink_RequestNavigate"
-                                               Foreground="{StaticResource TextSecondaryBrush}" TextDecorations="None">
-                                        <Run Text="Open" FontFamily="Segoe UI" FontSize="11"/>
-                                    </Hyperlink>
-                                </TextBlock>
-                            </Grid>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </Grid>
-        </Border>
-
-        <!-- Local Devices card -->
-        <Border x:Name="LocalDevicesCard" Grid.Row="6"
-                Background="{StaticResource SurfaceBrush}"
-                CornerRadius="12"
-                BorderThickness="1"
-                BorderBrush="{StaticResource BorderBrush}">
-            <Grid Margin="16,12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="4"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="6"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-
-                <TextBlock Grid.Row="0" Grid.Column="0"
-                           Text="LOCAL DEVICES" FontFamily="Segoe UI" FontSize="10"
-                           FontWeight="Medium" Foreground="{StaticResource TextSecondaryBrush}"/>
-
-                <!-- Device count + status dot -->
-                <StackPanel Grid.Row="0" Grid.Column="1"
-                            Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock x:Name="LocalDeviceCountLabel"
-                               Text="0 connected"
-                               FontFamily="Segoe UI" FontSize="11"
-                               Foreground="{StaticResource TextSecondaryBrush}"
-                               VerticalAlignment="Center"
-                               Margin="0,0,8,0"/>
-                    <Grid VerticalAlignment="Center">
-                        <Ellipse x:Name="LocalGlowDot" Width="24" Height="24" Opacity="0.4" Fill="#EF4444">
-                            <Ellipse.Effect>
-                                <BlurEffect Radius="12"/>
-                            </Ellipse.Effect>
-                        </Ellipse>
-                        <Ellipse x:Name="LocalStatusDot" Width="8" Height="8" Fill="#EF4444"
-                                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Grid>
-                </StackPanel>
-
-                <!-- WebSocket address row + inline port editor -->
-                <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-
-                    <!-- Normal view: address + edit button -->
-                    <StackPanel x:Name="PortDisplayPanel" Grid.Row="0" Orientation="Horizontal">
-                        <TextBlock Text="📱  " FontSize="13" VerticalAlignment="Center"/>
-                        <TextBlock x:Name="LocalAddressText"
-                                   Text="ws://—:8080"
-                                   FontFamily="Consolas, Courier New" FontSize="12" FontWeight="SemiBold"
-                                   Foreground="White" VerticalAlignment="Center"/>
-                        <Button x:Name="EditPortButton"
-                                Content="✏"
-                                Style="{StaticResource GhostButton}"
-                                FontSize="11"
-                                Height="22"
-                                Margin="8,0,0,0"
-                                ToolTip="Change port"
-                                Click="EditPortButton_Click"/>
-                    </StackPanel>
-
-                    <!-- Edit view: port textbox + apply + cancel (hidden by default) -->
-                    <StackPanel x:Name="PortEditPanel" Grid.Row="1"
-                                Orientation="Horizontal"
-                                Margin="0,6,0,0"
-                                Visibility="Collapsed">
-                        <TextBlock Text="Port: " FontFamily="Segoe UI" FontSize="11"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   VerticalAlignment="Center"/>
-                        <TextBox x:Name="PortInputBox"
-                                 Style="{StaticResource DarkTextBox}"
-                                 Width="72" Height="28"
-                                 FontFamily="Consolas, Courier New"
-                                 FontSize="12"
-                                 MaxLength="5"
-                                 VerticalContentAlignment="Center"
-                                 Padding="8,0"
-                                 Text="8080"
-                                 KeyDown="PortInputBox_KeyDown"
-                                 Margin="6,0,0,0"/>
-                        <Button Content="Apply"
-                                Style="{StaticResource PrimaryButton}"
-                                Height="28" Padding="10,0"
-                                FontSize="11"
-                                Margin="6,0,0,0"
-                                Click="ApplyPortButton_Click"/>
-                        <Button Content="✕"
-                                Style="{StaticResource GhostButton}"
-                                Height="28" FontSize="11"
-                                Margin="4,0,0,0"
-                                Click="CancelPortButton_Click"/>
-                    </StackPanel>
-                </Grid>
-
-                <!-- PIN display -->
-                <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal">
-                    <TextBlock Text="🔑  PIN: " FontFamily="Segoe UI" FontSize="11"
-                               Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                    <TextBlock x:Name="LocalPinText"
-                               Text="——"
-                               FontFamily="Consolas, Courier New" FontSize="13" FontWeight="Bold"
-                               Foreground="#FFC14B" VerticalAlignment="Center"
-                               Margin="4,0,0,0"/>
-                    <Button x:Name="ShowQrButton"
-                            Content="📷  Phone dashboard"
-                            Style="{StaticResource GhostButton}"
-                            FontSize="11" Height="22" Margin="12,0,0,0"
-                            ToolTip="Show a QR code for the phone dashboard"
-                            Click="ShowQrButton_Click"/>
-                </StackPanel>
-
-                <!-- Phone dashboard QR (LF-17): the URL carries the PIN in its fragment -->
-                <StackPanel x:Name="QrPanel" Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
-                            Orientation="Horizontal" Margin="0,10,0,0" Visibility="Collapsed">
-                    <Border Background="White" Padding="6" CornerRadius="6">
-                        <Image x:Name="LocalQrImage" Width="140" Height="140"
-                               RenderOptions.BitmapScalingMode="NearestNeighbor"/>
-                    </Border>
-                    <StackPanel Margin="12,0,0,0" VerticalAlignment="Center" Width="180">
-                        <TextBlock Text="Scan with your phone or tablet on the same Wi-Fi."
-                                   FontFamily="Segoe UI" FontSize="11" Foreground="White"
-                                   TextWrapping="Wrap"/>
-                        <TextBlock x:Name="LocalDashUrlText" Text=""
-                                   FontFamily="Consolas, Courier New" FontSize="10"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   TextWrapping="Wrap" Margin="0,6,0,0"/>
-                    </StackPanel>
-                </StackPanel>
-            </Grid>
-        </Border>
-
-        <!-- Port-conflict warning banner (hidden by default) -->
-        <Border x:Name="PortConflictBanner"
-                Grid.Row="7"
-                Background="#2D1A00"
-                CornerRadius="8"
-                BorderThickness="1"
-                BorderBrush="#FF8C00"
-                Margin="0,6,0,0"
-                Visibility="Collapsed">
-            <Grid Margin="12,8">
-                <StackPanel>
-                    <TextBlock Text="⚠  Port conflict detected"
-                               FontFamily="Segoe UI" FontSize="11" FontWeight="SemiBold"
-                               Foreground="#FFC14B"/>
-                    <TextBlock x:Name="PortConflictText"
-                               Text="Port 8080 is already in use. Set LOCAL_WS_PORT in .env to another value."
-                               FontFamily="Segoe UI" FontSize="10"
-                               Foreground="#FF8C00"
-                               TextWrapping="Wrap"
-                               Margin="0,2,0,0"/>
-                </StackPanel>
-            </Grid>
-        </Border>
-
-        <!-- Live Telemetry HUD (visible only when sim is streaming) -->
-        <Border x:Name="LiveTelemetryPanel"
-                Grid.Row="8"
-                Background="{StaticResource SurfaceBrush}"
-                CornerRadius="12"
-                BorderThickness="1"
-                BorderBrush="{StaticResource BorderBrush}"
-                Visibility="Collapsed">
-            <Grid Margin="16,14,16,14">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="10"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="10"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-
-                <!-- Section header -->
-                <TextBlock Grid.Row="0"
-                           Text="LIVE TELEMETRY"
-                           FontFamily="Segoe UI" FontSize="10" FontWeight="Medium"
-                           Foreground="{StaticResource TextSecondaryBrush}"/>
-
-                <!-- Speed + Gear -->
-                <Grid Grid.Row="2">
+                <!-- Greeting + actions -->
+                <Grid Margin="2,0,0,12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-
-                    <!-- Speed -->
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Bottom">
-                        <TextBlock x:Name="LiveSpeedText"
-                                   Text="0"
-                                   FontFamily="Segoe UI" FontSize="40" FontWeight="Bold"
-                                   Foreground="White"/>
-                        <TextBlock Text="km/h"
-                                   FontFamily="Segoe UI" FontSize="13"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   VerticalAlignment="Bottom"
-                                   Margin="6,0,0,5"/>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock x:Name="GreetingText" Text="Welcome back"
+                                   FontFamily="Segoe UI" FontSize="11"
+                                   Foreground="{StaticResource TextMutedBrush}"/>
+                        <TextBlock x:Name="UserNameText" Text="Driver" TextTrimming="CharacterEllipsis"
+                                   FontFamily="Segoe UI" FontSize="16" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}"/>
                     </StackPanel>
-
-                    <!-- Gear + RPM -->
-                    <StackPanel Grid.Column="1" HorizontalAlignment="Right">
-                        <!-- Gear -->
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <TextBlock Text="GEAR "
-                                       FontFamily="Segoe UI" FontSize="10" FontWeight="Medium"
-                                       Foreground="{StaticResource TextSecondaryBrush}"
-                                       VerticalAlignment="Center"/>
-                            <TextBlock x:Name="LiveGearText"
-                                       Text="N"
-                                       FontFamily="Segoe UI" FontSize="28" FontWeight="Bold"
-                                       Foreground="#FFC14B"/>
-                        </StackPanel>
-                        <!-- RPM value -->
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,2,0,0">
-                            <TextBlock x:Name="LiveRpmText"
-                                       Text="0"
-                                       FontFamily="Consolas, Courier New" FontSize="11" FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextSecondaryBrush}"/>
-                            <TextBlock Text=" rpm"
-                                       FontFamily="Segoe UI" FontSize="10"
-                                       Foreground="{StaticResource TextSecondaryBrush}"/>
-                        </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="SettingsButton" Style="{StaticResource IconButton}"
+                                Content="&#xE713;" ToolTip="Settings"
+                                AutomationProperties.Name="Settings"
+                                Click="SettingsButton_Click"/>
+                        <Button Style="{StaticResource GhostButton}" Content="Sign out"
+                                Margin="2,0,0,0" Click="SignOutButton_Click"/>
                     </StackPanel>
                 </Grid>
 
-                <!-- Pedal inputs + RPM bar -->
-                <Grid Grid.Row="4">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="6"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="6"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
+                <!-- Sim card -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <Grid>
+                            <TextBlock Text="SIM" Style="{StaticResource CardLabel}"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <TextBlock x:Name="SimStatusLabel" Text="Disconnected"
+                                           Style="{StaticResource StatusText}" Margin="0,0,8,0"/>
+                                <Grid Width="10" Height="10" VerticalAlignment="Center">
+                                    <Ellipse x:Name="SimGlowDot" Width="18" Height="18" Margin="-4"
+                                             Opacity="0.45" Fill="Red">
+                                        <Ellipse.Effect><BlurEffect Radius="8"/></Ellipse.Effect>
+                                    </Ellipse>
+                                    <Ellipse x:Name="SimStatusDot" Width="8" Height="8" Fill="Red"/>
+                                </Grid>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock x:Name="SimGameName" Text="No game detected"
+                                   Style="{StaticResource CardTitle}" Margin="0,6,0,0"/>
+                        <!-- Telemetry health check (LF-16): why no data is arriving, and how to fix it -->
+                        <Grid x:Name="SimHealthPanel" Margin="0,8,0,0" Visibility="Collapsed">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="&#xE946;" FontFamily="{StaticResource IconFont}" FontSize="12"
+                                       Foreground="{StaticResource WarningBrush}" Margin="0,2,8,0"/>
+                            <TextBlock x:Name="SimHealthText" Grid.Column="1" Style="{StaticResource CardText}"
+                                       Foreground="{StaticResource WarningBrush}"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
 
-                    <!-- RPM bar -->
-                    <Grid Grid.Row="0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="40"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="RPM"
-                                   FontFamily="Segoe UI" FontSize="10" FontWeight="Medium"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   VerticalAlignment="Center"/>
-                        <Border Grid.Column="1" Height="8" CornerRadius="4"
-                                Background="#1E293B">
-                            <Grid x:Name="RpmBarContainer" HorizontalAlignment="Left">
-                                <Border x:Name="RpmBar" Height="8" Width="0" CornerRadius="4"
-                                        HorizontalAlignment="Left">
+                <!-- Turn One card: upload/stream state + recent sessions -->
+                <Border Style="{StaticResource Card}" Margin="0,8,0,0">
+                    <StackPanel>
+                        <Grid>
+                            <TextBlock Text="TURN ONE" Style="{StaticResource CardLabel}"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <TextBlock x:Name="ServerStatusLabel" Text="Online"
+                                           Style="{StaticResource StatusText}" Margin="0,0,8,0"/>
+                                <Grid Width="10" Height="10" VerticalAlignment="Center">
+                                    <Ellipse x:Name="ServerGlowDot" Width="18" Height="18" Margin="-4"
+                                             Opacity="0.45" Fill="#22C55E">
+                                        <Ellipse.Effect><BlurEffect Radius="8"/></Ellipse.Effect>
+                                    </Ellipse>
+                                    <Ellipse x:Name="ServerStatusDot" Width="8" Height="8" Fill="#22C55E"/>
+                                </Grid>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock x:Name="ServerStatusText" Text="Connected"
+                                   Style="{StaticResource CardTitle}" Margin="0,6,0,0"/>
+                        <TextBlock x:Name="ServerSubText" Style="{StaticResource CardText}"
+                                   Margin="0,2,0,0" Visibility="Collapsed"/>
+
+                        <!-- Recent sessions and their upload state (LF-13) -->
+                        <StackPanel x:Name="SessionSection" Visibility="Collapsed" Margin="0,10,0,0">
+                            <Border Height="1" Background="{StaticResource DividerBrush}" Margin="0,0,0,8"/>
+                            <TextBlock Text="RECENT SESSIONS" Style="{StaticResource CardLabel}" Margin="0,0,0,4"/>
+                            <ItemsControl x:Name="SessionList" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,3">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis"
+                                                           FontFamily="Segoe UI" FontSize="12" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                                                <TextBlock Text="{Binding Detail}" TextTrimming="CharacterEllipsis"
+                                                           FontFamily="Segoe UI" FontSize="11"
+                                                           Foreground="{StaticResource TextMutedBrush}"/>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" Text="{Binding State}" Margin="10,0,0,0"
+                                                       VerticalAlignment="Center"
+                                                       FontFamily="Segoe UI" FontSize="11" FontWeight="SemiBold"
+                                                       Foreground="{Binding StateBrush}"/>
+                                            <Button Grid.Column="2" Style="{StaticResource IconButton}"
+                                                    Width="26" Height="26" FontSize="11" Margin="6,0,-6,0"
+                                                    Content="&#xE8A7;" ToolTip="Open on Turn One"
+                                                    Visibility="{Binding OpenVisibility}"
+                                                    Tag="{Binding WebUrl}" Click="SessionOpen_Click"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Phone / LAN card -->
+                <Border x:Name="LocalDevicesCard" Style="{StaticResource Card}" Margin="0,8,0,0">
+                    <StackPanel>
+                        <Grid>
+                            <TextBlock Text="PHONE DASHBOARD" Style="{StaticResource CardLabel}"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <TextBlock x:Name="LocalDeviceCountLabel" Text="0 connected"
+                                           Style="{StaticResource StatusText}" Margin="0,0,8,0"/>
+                                <Grid Width="10" Height="10" VerticalAlignment="Center">
+                                    <Ellipse x:Name="LocalGlowDot" Width="18" Height="18" Margin="-4"
+                                             Opacity="0.45" Fill="#EF4444">
+                                        <Ellipse.Effect><BlurEffect Radius="8"/></Ellipse.Effect>
+                                    </Ellipse>
+                                    <Ellipse x:Name="LocalStatusDot" Width="8" Height="8" Fill="#EF4444"/>
+                                </Grid>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Address + PIN -->
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel x:Name="PortDisplayPanel" Orientation="Horizontal">
+                                <TextBlock x:Name="LocalAddressText" Text="ws://—:8080"
+                                           FontFamily="Consolas" FontSize="12"
+                                           Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                <Button x:Name="EditPortButton" Style="{StaticResource IconButton}"
+                                        Width="24" Height="24" FontSize="11" Margin="4,0,0,0"
+                                        Content="&#xE70F;" ToolTip="Change port"
+                                        Click="EditPortButton_Click"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="PIN" Style="{StaticResource CardLabel}" Margin="0,0,6,0"/>
+                                <TextBlock x:Name="LocalPinText" Text="——"
+                                           FontFamily="Consolas" FontSize="13" FontWeight="Bold"
+                                           Foreground="{StaticResource WarningBrush}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Port editor (hidden by default) -->
+                        <StackPanel x:Name="PortEditPanel" Orientation="Horizontal" Margin="0,8,0,0"
+                                    Visibility="Collapsed">
+                            <TextBlock Text="Port" Style="{StaticResource StatusText}" Margin="0,0,8,0"/>
+                            <TextBox x:Name="PortInputBox" Style="{StaticResource DarkTextBox}"
+                                     Width="72" Height="28" FontFamily="Consolas" FontSize="12"
+                                     MaxLength="5" Padding="8,0" Text="8080"
+                                     KeyDown="PortInputBox_KeyDown"/>
+                            <Button Content="Apply" Style="{StaticResource PrimaryButton}"
+                                    Height="28" Width="60" FontSize="11" Margin="6,0,0,0"
+                                    Click="ApplyPortButton_Click"/>
+                            <Button Content="&#xE711;" Style="{StaticResource IconButton}"
+                                    Width="28" Height="28" FontSize="10" Margin="2,0,0,0"
+                                    ToolTip="Cancel" Click="CancelPortButton_Click"/>
+                        </StackPanel>
+
+                        <Button x:Name="ShowQrButton" Style="{StaticResource ChipButton}"
+                                HorizontalAlignment="Left" Margin="0,10,0,0"
+                                ToolTip="Show a QR code for the phone dashboard"
+                                Click="ShowQrButton_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xED14;" FontFamily="{StaticResource IconFont}" FontSize="11"
+                                           VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock x:Name="ShowQrText" Text="Show QR code" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Phone dashboard QR (LF-17): the URL carries the PIN in its fragment -->
+                        <Grid x:Name="QrPanel" Margin="0,10,0,0" Visibility="Collapsed">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Background="White" Padding="6" CornerRadius="8">
+                                <Image x:Name="LocalQrImage" Width="104" Height="104"
+                                       RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="Scan with a phone on the same Wi-Fi network."
+                                           Style="{StaticResource CardText}"
+                                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <TextBlock x:Name="LocalDashUrlText" Text="" Margin="0,6,0,0"
+                                           FontFamily="Consolas" FontSize="10" TextTrimming="CharacterEllipsis"
+                                           Foreground="{StaticResource TextMutedBrush}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Port-conflict warning (hidden by default) -->
+                        <Border x:Name="PortConflictBanner" Background="#2A1C05" CornerRadius="8"
+                                BorderThickness="1" BorderBrush="#5C3D0A" Padding="10,8"
+                                Margin="0,10,0,0" Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock Text="Port already in use" FontFamily="Segoe UI" FontSize="11.5"
+                                           FontWeight="SemiBold" Foreground="{StaticResource WarningBrush}"/>
+                                <TextBlock x:Name="PortConflictText" Style="{StaticResource CardText}"
+                                           Foreground="#E0B060" Margin="0,2,0,0"
+                                           Text="Port 8080 is already in use."/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- Live telemetry HUD (only while the sim is streaming) -->
+                <Border x:Name="LiveTelemetryPanel" Style="{StaticResource Card}" Margin="0,8,0,0"
+                        Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock Text="LIVE TELEMETRY" Style="{StaticResource CardLabel}"/>
+                        <Grid Margin="0,4,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock x:Name="LiveSpeedText" Text="0"
+                                           FontFamily="Segoe UI" FontSize="36" FontWeight="Bold"
+                                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <StackPanel VerticalAlignment="Bottom" Margin="6,0,0,8">
+                                    <TextBlock Text="km/h" FontFamily="Segoe UI" FontSize="11"
+                                               Foreground="{StaticResource TextMutedBrush}"/>
+                                </StackPanel>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <StackPanel VerticalAlignment="Center" Margin="0,0,10,0">
+                                    <TextBlock x:Name="LiveRpmText" Text="0" HorizontalAlignment="Right"
+                                               FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="RPM" HorizontalAlignment="Right" Style="{StaticResource BarLabel}"/>
+                                </StackPanel>
+                                <Border Width="46" Height="46" CornerRadius="10" Background="{StaticResource InsetBrush}"
+                                        BorderThickness="1" BorderBrush="{StaticResource BorderBrush}">
+                                    <TextBlock x:Name="LiveGearText" Text="N"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               FontFamily="Segoe UI" FontSize="26" FontWeight="Bold"
+                                               Foreground="{StaticResource WarningBrush}"/>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Bars: a full-width track with a fill scaled 0..1 (no layout pass per frame) -->
+                        <Grid Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="66"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="7"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="7"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Text="RPM" Style="{StaticResource BarLabel}"/>
+                            <Border Grid.Row="0" Grid.Column="1" Height="6" CornerRadius="3"
+                                    Background="{StaticResource InsetBrush}" ClipToBounds="True">
+                                <Border x:Name="RpmBar" CornerRadius="3" RenderTransformOrigin="0,0.5">
+                                    <Border.RenderTransform><ScaleTransform x:Name="RpmScale" ScaleX="0"/></Border.RenderTransform>
                                     <Border.Background>
                                         <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
                                             <GradientStop Color="#4ADE80" Offset="0"/>
@@ -442,303 +294,212 @@
                                         </LinearGradientBrush>
                                     </Border.Background>
                                 </Border>
+                            </Border>
+
+                            <TextBlock Grid.Row="2" Text="THROTTLE" Style="{StaticResource BarLabel}"/>
+                            <Border Grid.Row="2" Grid.Column="1" Height="6" CornerRadius="3"
+                                    Background="{StaticResource InsetBrush}" ClipToBounds="True">
+                                <Border x:Name="ThrottleBar" CornerRadius="3" Background="#4ADE80"
+                                        RenderTransformOrigin="0,0.5">
+                                    <Border.RenderTransform><ScaleTransform x:Name="ThrottleScale" ScaleX="0"/></Border.RenderTransform>
+                                </Border>
+                            </Border>
+
+                            <TextBlock Grid.Row="4" Text="BRAKE" Style="{StaticResource BarLabel}"/>
+                            <Border Grid.Row="4" Grid.Column="1" Height="6" CornerRadius="3"
+                                    Background="{StaticResource InsetBrush}" ClipToBounds="True">
+                                <Border x:Name="BrakeBar" CornerRadius="3" Background="#EF4444"
+                                        RenderTransformOrigin="0,0.5">
+                                    <Border.RenderTransform><ScaleTransform x:Name="BrakeScale" ScaleX="0"/></Border.RenderTransform>
+                                </Border>
+                            </Border>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Console log -->
+                <Border x:Name="ConsoleSection" Margin="0,8,0,0" Height="132"
+                        Background="{StaticResource InsetBrush}" CornerRadius="12"
+                        BorderThickness="1" BorderBrush="{StaticResource BorderBrush}">
+                    <ScrollViewer x:Name="ConsoleScroll" VerticalScrollBarVisibility="Auto"
+                                  Margin="10,8,4,8" Focusable="False">
+                        <TextBlock x:Name="ConsoleOutput" Margin="0,0,6,0"
+                                   FontFamily="Consolas" FontSize="10.5" LineHeight="15"
+                                   Foreground="#7FD99A" TextWrapping="Wrap"/>
+                    </ScrollViewer>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ══ Settings (covers the dashboard; the window grows to fit it when it can) ══ -->
+        <Grid x:Name="SettingsOverlay" Visibility="Collapsed" Background="{StaticResource BackgroundBrush}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          Focusable="False">
+                <StackPanel x:Name="SettingsContent" Margin="16,10,16,16">
+
+                    <Grid Margin="0,0,0,12">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource IconButton}" Content="&#xE72B;" FontSize="12"
+                                    ToolTip="Back" AutomationProperties.Name="Back"
+                                    Margin="-6,0,4,0" Click="CloseSettingsButton_Click"/>
+                            <TextBlock Text="Settings" FontFamily="Segoe UI" FontSize="16" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Dashboard -->
+                    <TextBlock Text="DASHBOARD" Style="{StaticResource SectionLabel}"/>
+                    <Border Style="{StaticResource Card}" Padding="14,4">
+                        <StackPanel>
+                            <Grid Margin="0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,12,0" VerticalAlignment="Center">
+                                    <TextBlock Text="Live telemetry" Style="{StaticResource SettingTitle}"/>
+                                    <TextBlock Text="Speed, gear, RPM and pedals while you drive" Style="{StaticResource SettingDesc}"/>
+                                </StackPanel>
+                                <CheckBox x:Name="ShowTelemetryToggle" Grid.Column="1" Style="{StaticResource ToggleSwitch}"
+                                          VerticalAlignment="Center" AutomationProperties.Name="Live telemetry"
+                                          Checked="SettingsToggle_Changed" Unchecked="SettingsToggle_Changed"/>
                             </Grid>
-                        </Border>
-                    </Grid>
-
-                    <!-- Throttle bar -->
-                    <Grid Grid.Row="2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="40"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="GAS"
-                                   FontFamily="Segoe UI" FontSize="10" FontWeight="Medium"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   VerticalAlignment="Center"/>
-                        <Border Grid.Column="1" Height="8" CornerRadius="4"
-                                Background="#1E293B">
-                            <Grid x:Name="ThrottleBarContainer" HorizontalAlignment="Left">
-                                <Border x:Name="ThrottleBar" Height="8" Width="0" CornerRadius="4"
-                                        Background="#4ADE80" HorizontalAlignment="Left"/>
+                            <Border Height="1" Background="{StaticResource DividerBrush}"/>
+                            <Grid Margin="0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,12,0" VerticalAlignment="Center">
+                                    <TextBlock Text="Phone dashboard" Style="{StaticResource SettingTitle}"/>
+                                    <TextBlock Text="Address, PIN and QR code for a phone on your Wi-Fi" Style="{StaticResource SettingDesc}"/>
+                                </StackPanel>
+                                <CheckBox x:Name="ShowLocalWsToggle" Grid.Column="1" Style="{StaticResource ToggleSwitch}"
+                                          VerticalAlignment="Center" AutomationProperties.Name="Phone dashboard"
+                                          Checked="SettingsToggle_Changed" Unchecked="SettingsToggle_Changed"/>
                             </Grid>
-                        </Border>
-                    </Grid>
-
-                    <!-- Brake bar -->
-                    <Grid Grid.Row="4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="40"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="BRAKE"
-                                   FontFamily="Segoe UI" FontSize="10" FontWeight="Medium"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   VerticalAlignment="Center"/>
-                        <Border Grid.Column="1" Height="8" CornerRadius="4"
-                                Background="#1E293B">
-                            <Grid x:Name="BrakeBarContainer" HorizontalAlignment="Left">
-                                <Border x:Name="BrakeBar" Height="8" Width="0" CornerRadius="4"
-                                        Background="#EF4444" HorizontalAlignment="Left"/>
+                            <Border Height="1" Background="{StaticResource DividerBrush}"/>
+                            <Grid Margin="0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,12,0" VerticalAlignment="Center">
+                                    <TextBlock Text="Console" Style="{StaticResource SettingTitle}"/>
+                                    <TextBlock Text="Log of what Link is doing" Style="{StaticResource SettingDesc}"/>
+                                </StackPanel>
+                                <CheckBox x:Name="ShowConsoleToggle" Grid.Column="1" Style="{StaticResource ToggleSwitch}"
+                                          VerticalAlignment="Center" AutomationProperties.Name="Console"
+                                          Checked="SettingsToggle_Changed" Unchecked="SettingsToggle_Changed"/>
                             </Grid>
-                        </Border>
-                    </Grid>
-                </Grid>
-
-            </Grid>
-        </Border>
-
-        <!-- Console log -->
-        <Border x:Name="ConsoleSection" Grid.Row="10"
-                Background="#0F172A"
-                CornerRadius="8"
-                BorderThickness="1"
-                BorderBrush="{StaticResource BorderBrush}"
-                MinHeight="160"
-                Margin="0,4,0,0">
-            <ScrollViewer x:Name="ConsoleScroll" VerticalScrollBarVisibility="Auto" Margin="8">
-                <TextBlock x:Name="ConsoleOutput"
-                           FontFamily="Consolas, Courier New" FontSize="10"
-                           Foreground="#4ADE80" TextWrapping="Wrap"/>
-            </ScrollViewer>
-        </Border>
-
-        <!-- Version -->
-        <TextBlock x:Name="VersionLabel" Grid.Row="11" HorizontalAlignment="Center"
-                   Margin="0,8,0,0"
-                   Text="v0.0.0" FontFamily="Segoe UI" FontSize="10"
-                   Foreground="#33FFFFFF"/>
-        <!-- Settings overlay (spans all rows, shown on gear-button click) -->
-        <Grid x:Name="SettingsOverlay"
-              Grid.Row="0" Grid.RowSpan="12"
-              Visibility="Collapsed"
-              Panel.ZIndex="100">
-
-            <!-- Dim backdrop — click anywhere outside drawer to close -->
-            <Border x:Name="SettingsBackdrop"
-                    Background="#B20E0E10"
-                    MouseDown="SettingsBackdrop_MouseDown"/>
-
-            <!-- Right-side drawer -->
-            <Border HorizontalAlignment="Right"
-                    Width="272"
-                    Background="#18181C"
-                    CornerRadius="12,0,0,12"
-                    BorderThickness="1,0,0,0"
-                    BorderBrush="#2A2A32">
-                <StackPanel Margin="22,22,22,26">
-
-                    <!-- Header row -->
-                    <Grid>
-                        <TextBlock Text="SETTINGS"
-                                   FontFamily="Segoe UI" FontSize="10" FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   VerticalAlignment="Center"/>
-                        <Button HorizontalAlignment="Right"
-                                Style="{StaticResource GhostButton}"
-                                Content="✕" FontSize="11"
-                                Height="26" Width="26"
-                                Click="CloseSettingsButton_Click"/>
-                    </Grid>
-
-                    <!-- Divider -->
-                    <Border Height="1" Background="#2A2A32" Margin="0,16,0,18"/>
-
-                    <!-- Section label -->
-                    <TextBlock Text="DASHBOARD PANELS"
-                               FontFamily="Segoe UI" FontSize="9" FontWeight="SemiBold"
-                               Foreground="#4A4A5A"
-                               Margin="0,0,0,16"/>
-
-                    <!-- Toggle: Live Telemetry -->
-                    <Grid Margin="0,0,0,18">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
-                            <TextBlock Text="Live Telemetry"
-                                       FontFamily="Segoe UI" FontSize="12" FontWeight="SemiBold"
-                                       Foreground="White"/>
-                            <TextBlock Text="Speed, gear, RPM &amp; pedal inputs"
-                                       FontFamily="Segoe UI" FontSize="10"
-                                       Foreground="{StaticResource TextSecondaryBrush}"
-                                       Margin="0,3,0,0" TextWrapping="Wrap"/>
                         </StackPanel>
-                        <CheckBox x:Name="ShowTelemetryToggle"
-                                  Grid.Column="1"
-                                  Style="{StaticResource ToggleSwitch}"
-                                  VerticalAlignment="Center"
-                                  Checked="SettingsToggle_Changed"
-                                  Unchecked="SettingsToggle_Changed"/>
-                    </Grid>
+                    </Border>
 
-                    <!-- Toggle: Console / Terminal -->
-                    <Grid Margin="0,0,0,18">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
-                            <TextBlock Text="Console"
-                                       FontFamily="Segoe UI" FontSize="12" FontWeight="SemiBold"
-                                       Foreground="White"/>
-                            <TextBlock Text="Live log of telemetry &amp; system events"
-                                       FontFamily="Segoe UI" FontSize="10"
-                                       Foreground="{StaticResource TextSecondaryBrush}"
-                                       Margin="0,3,0,0" TextWrapping="Wrap"/>
+                    <!-- Telemetry -->
+                    <TextBlock Text="TELEMETRY" Style="{StaticResource SectionLabel}" Margin="4,16,0,8"/>
+                    <Border Style="{StaticResource Card}" Padding="14,4">
+                        <StackPanel>
+                            <Grid Margin="0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,12,0" VerticalAlignment="Center">
+                                    <TextBlock Text="Live streaming" Style="{StaticResource SettingTitle}"/>
+                                    <TextBlock Text="For spectators and OBS overlays, from the next session. Laps upload either way." Style="{StaticResource SettingDesc}"/>
+                                </StackPanel>
+                                <CheckBox x:Name="LiveStreamingToggle" Grid.Column="1" Style="{StaticResource ToggleSwitch}"
+                                          VerticalAlignment="Center" AutomationProperties.Name="Live streaming"
+                                          Checked="SettingsToggle_Changed" Unchecked="SettingsToggle_Changed"/>
+                            </Grid>
+                            <Border Height="1" Background="{StaticResource DividerBrush}"/>
+                            <Grid Margin="0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,12,0" VerticalAlignment="Center">
+                                    <TextBlock Text="F1 on PlayStation / Xbox" Style="{StaticResource SettingTitle}"/>
+                                    <TextBlock Text="Receive F1 25/26 telemetry from a console on your network" Style="{StaticResource SettingDesc}"/>
+                                </StackPanel>
+                                <CheckBox x:Name="F1ConsoleToggle" Grid.Column="1" Style="{StaticResource ToggleSwitch}"
+                                          VerticalAlignment="Center" AutomationProperties.Name="F1 on PlayStation or Xbox"
+                                          Checked="SettingsToggle_Changed" Unchecked="SettingsToggle_Changed"/>
+                            </Grid>
+                            <Border Height="1" Background="{StaticResource DividerBrush}"/>
+                            <Grid Margin="0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,12,0" VerticalAlignment="Center">
+                                    <TextBlock Text="Local session log" Style="{StaticResource SettingTitle}"/>
+                                    <TextBlock Text="Also keep a full telemetry log on this PC" Style="{StaticResource SettingDesc}"/>
+                                </StackPanel>
+                                <CheckBox x:Name="EnableSessionLoggingToggle" Grid.Column="1" Style="{StaticResource ToggleSwitch}"
+                                          VerticalAlignment="Center" AutomationProperties.Name="Local session log"
+                                          Checked="SettingsToggle_Changed" Unchecked="SettingsToggle_Changed"/>
+                            </Grid>
+                            <Border Height="1" Background="{StaticResource DividerBrush}"/>
+                            <Grid Margin="0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,12,0" VerticalAlignment="Center">
+                                    <TextBlock Text="Crash reports" Style="{StaticResource SettingTitle}"/>
+                                    <TextBlock Text="Send anonymous crash reports. Applies after a restart." Style="{StaticResource SettingDesc}"/>
+                                </StackPanel>
+                                <CheckBox x:Name="SendCrashReportsToggle" Grid.Column="1" Style="{StaticResource ToggleSwitch}"
+                                          VerticalAlignment="Center" AutomationProperties.Name="Crash reports"
+                                          Checked="SettingsToggle_Changed" Unchecked="SettingsToggle_Changed"/>
+                            </Grid>
                         </StackPanel>
-                        <CheckBox x:Name="ShowConsoleToggle"
-                                  Grid.Column="1"
-                                  Style="{StaticResource ToggleSwitch}"
-                                  VerticalAlignment="Center"
-                                  Checked="SettingsToggle_Changed"
-                                  Unchecked="SettingsToggle_Changed"/>
-                    </Grid>
+                    </Border>
 
-                    <!-- Toggle: Local WS Info -->
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
-                            <TextBlock Text="Local WS Info"
-                                       FontFamily="Segoe UI" FontSize="12" FontWeight="SemiBold"
-                                       Foreground="White"/>
-                            <TextBlock Text="Address, PIN &amp; connected devices"
-                                       FontFamily="Segoe UI" FontSize="10"
-                                       Foreground="{StaticResource TextSecondaryBrush}"
-                                       Margin="0,3,0,0" TextWrapping="Wrap"/>
+                    <!-- Help -->
+                    <TextBlock Text="HELP" Style="{StaticResource SectionLabel}" Margin="4,16,0,8"/>
+                    <Border Style="{StaticResource Card}" Padding="2">
+                        <StackPanel>
+                            <Button x:Name="OpenSessionsFolderButton" Style="{StaticResource RowButton}"
+                                    Click="OpenSessionsFolderButton_Click">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="&#xE8B7;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                               Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                    <TextBlock Grid.Column="1" Text="Open sessions folder" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="&#xE76C;" FontFamily="{StaticResource IconFont}" FontSize="10"
+                                               Foreground="{StaticResource TextTertiaryBrush}" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Button>
+                            <Border Height="1" Background="{StaticResource DividerBrush}" Margin="12,0"/>
+                            <Button x:Name="ReportProblemButton" Style="{StaticResource RowButton}"
+                                    ToolTip="Builds a zip with the log, settings and app version (never your sign-in) to attach to a bug report"
+                                    Click="ReportProblemButton_Click">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="&#xEBE8;" FontFamily="{StaticResource IconFont}" FontSize="13"
+                                               Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                    <TextBlock Grid.Column="1" Text="Report a problem" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="&#xE76C;" FontFamily="{StaticResource IconFont}" FontSize="10"
+                                               Foreground="{StaticResource TextTertiaryBrush}" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Button>
                         </StackPanel>
-                        <CheckBox x:Name="ShowLocalWsToggle"
-                                  Grid.Column="1"
-                                  Style="{StaticResource ToggleSwitch}"
-                                  VerticalAlignment="Center"
-                                  Checked="SettingsToggle_Changed"
-                                  Unchecked="SettingsToggle_Changed"/>
-                    </Grid>
+                    </Border>
 
-                    <!-- Divider -->
-                    <Border Height="1" Background="#2A2A32" Margin="0,18,0,18"/>
-
-                    <!-- Section label -->
-                    <TextBlock Text="SESSION LOGGING"
-                               FontFamily="Segoe UI" FontSize="9" FontWeight="SemiBold"
-                               Foreground="#4A4A5A"
-                               Margin="0,0,0,16"/>
-
-                    <!-- Toggle: Session Logging -->
-                    <Grid Margin="0,0,0,14">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
-                            <TextBlock Text="Session Logging"
-                                       FontFamily="Segoe UI" FontSize="12" FontWeight="SemiBold"
-                                       Foreground="White"/>
-                            <TextBlock Text="Save telemetry locally for post-race analysis"
-                                       FontFamily="Segoe UI" FontSize="10"
-                                       Foreground="{StaticResource TextSecondaryBrush}"
-                                       Margin="0,3,0,0" TextWrapping="Wrap"/>
-                        </StackPanel>
-                        <CheckBox x:Name="EnableSessionLoggingToggle"
-                                  Grid.Column="1"
-                                  Style="{StaticResource ToggleSwitch}"
-                                  VerticalAlignment="Center"
-                                  Checked="SettingsToggle_Changed"
-                                  Unchecked="SettingsToggle_Changed"/>
-                    </Grid>
-
-                    <!-- Toggle: Live streaming (LF-14) -->
-                    <Grid Margin="0,0,0,14">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
-                            <TextBlock Text="Live streaming"
-                                       FontFamily="Segoe UI" FontSize="12" FontWeight="SemiBold"
-                                       Foreground="White"/>
-                            <TextBlock Text="Stream while you drive, for spectators and OBS overlays (from the next session). Laps upload either way."
-                                       FontFamily="Segoe UI" FontSize="10"
-                                       Foreground="{StaticResource TextSecondaryBrush}"
-                                       Margin="0,3,0,0" TextWrapping="Wrap"/>
-                        </StackPanel>
-                        <CheckBox x:Name="LiveStreamingToggle"
-                                  Grid.Column="1"
-                                  Style="{StaticResource ToggleSwitch}"
-                                  VerticalAlignment="Center"
-                                  Checked="SettingsToggle_Changed"
-                                  Unchecked="SettingsToggle_Changed"/>
-                    </Grid>
-
-                    <!-- Toggle: F1 on console (D15) -->
-                    <Grid Margin="0,0,0,14">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
-                            <TextBlock Text="F1 on PlayStation / Xbox"
-                                       FontFamily="Segoe UI" FontSize="12" FontWeight="SemiBold"
-                                       Foreground="White"/>
-                            <TextBlock Text="Listen for F1 25/26 telemetry sent from a console on your network"
-                                       FontFamily="Segoe UI" FontSize="10"
-                                       Foreground="{StaticResource TextSecondaryBrush}"
-                                       Margin="0,3,0,0" TextWrapping="Wrap"/>
-                        </StackPanel>
-                        <CheckBox x:Name="F1ConsoleToggle"
-                                  Grid.Column="1"
-                                  Style="{StaticResource ToggleSwitch}"
-                                  VerticalAlignment="Center"
-                                  Checked="SettingsToggle_Changed"
-                                  Unchecked="SettingsToggle_Changed"/>
-                    </Grid>
-
-                    <!-- Toggle: Crash Reports -->
-                    <Grid Margin="0,0,0,14">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
-                            <TextBlock Text="Crash Reports"
-                                       FontFamily="Segoe UI" FontSize="12" FontWeight="SemiBold"
-                                       Foreground="White"/>
-                            <TextBlock Text="Send anonymous crash reports (applies after restart)"
-                                       FontFamily="Segoe UI" FontSize="10"
-                                       Foreground="{StaticResource TextSecondaryBrush}"
-                                       Margin="0,3,0,0" TextWrapping="Wrap"/>
-                        </StackPanel>
-                        <CheckBox x:Name="SendCrashReportsToggle"
-                                  Grid.Column="1"
-                                  Style="{StaticResource ToggleSwitch}"
-                                  VerticalAlignment="Center"
-                                  Checked="SettingsToggle_Changed"
-                                  Unchecked="SettingsToggle_Changed"/>
-                    </Grid>
-
-                    <Button x:Name="OpenSessionsFolderButton"
-                            Style="{StaticResource GhostButton}"
-                            Content="Open sessions folder"
-                            HorizontalAlignment="Left"
-                            FontSize="11"
-                            Click="OpenSessionsFolderButton_Click"/>
-
-                    <Button x:Name="ReportProblemButton"
-                            Style="{StaticResource GhostButton}"
-                            Content="Report a problem"
-                            HorizontalAlignment="Left"
-                            FontSize="11"
-                            Margin="0,6,0,0"
-                            ToolTip="Builds a zip with the log, settings and app version (never your sign-in) to attach to a bug report"
-                            Click="ReportProblemButton_Click"/>
-
+                    <TextBlock x:Name="VersionLabel" Text="v0.0.0" HorizontalAlignment="Center" Margin="0,14,0,0"
+                               FontFamily="Segoe UI" FontSize="10.5" Foreground="{StaticResource TextTertiaryBrush}"/>
                 </StackPanel>
-            </Border>
+            </ScrollViewer>
         </Grid>
-
     </Grid>
 </UserControl>
