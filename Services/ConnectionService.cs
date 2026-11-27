@@ -24,8 +24,8 @@ public class ConnectionService : IDisposable
         // iRacingUI / iRacingService run without a car on track; only the sim process carries telemetry.
         new("iRacing", ["iRacingSim64DX11", "iRacingSim64DX12", "iRacingSim64"]),
         // Named by process, not window title ("EA SPORTS F1® 25" doesn't start with "F1").
-        new("F1 25", ["F1_25"]),
-        new("F1 26", ["F1_26", "F126"]),
+        // The 2026 Season Pack is content for F1 25, so every one of these names shows as "F1 25".
+        new("F1 25", ["F1_25", "F1_26", "F126"]),
         // Detected so the UI can say so, but no telemetry adapter yet (see MainWindow.CreateSourceFor).
         new("rFactor 2", ["rFactor2"]),
         new("RaceRoom", ["RRRE", "RRRE64"]),

@@ -486,9 +486,9 @@ public partial class MainWindow : Window
             return new IRacingTelemetryService();
         }
 
-        // EA F1 25/26 broadcast telemetry over UDP; the exact title is resolved from the packet
-        // header's packetFormat once the first packet arrives (Services/F1/F1UdpTelemetrySource.cs).
-        if (gameName is "F1 25" or "F1 26" or ConnectionService.F1ConsoleGameName)
+        // EA F1 25 broadcasts telemetry over UDP; the format (2025, or 2026 with the Season Pack) is resolved
+        // from the packet header's packetFormat once the first packet arrives (Services/F1/F1UdpTelemetrySource.cs).
+        if (gameName is "F1 25" or ConnectionService.F1ConsoleGameName)
         {
             sourceName = "F1";
             return new Turn_One_Link.Services.F1.F1UdpTelemetrySource(log);

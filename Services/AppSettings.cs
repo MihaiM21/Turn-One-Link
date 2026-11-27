@@ -49,7 +49,7 @@ public sealed class AppSettings
     [JsonPropertyName("liveStreaming")]
     public bool LiveStreaming { get; set; } = false;
 
-    /// <summary>F1 25/26 on PlayStation / Xbox: listen for its UDP telemetry without a game on this PC. Default: off.</summary>
+    /// <summary>F1 25 on PlayStation / Xbox: listen for its UDP telemetry without a game on this PC. Default: off.</summary>
     [JsonPropertyName("f1ConsoleMode")]
     public bool F1ConsoleMode { get; set; } = false;
 

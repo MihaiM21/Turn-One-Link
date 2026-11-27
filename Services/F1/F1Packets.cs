@@ -4,7 +4,7 @@ using System.Buffers.Binary;
 namespace Turn_One_Link.Services.F1;
 
 /// <summary>
-/// Offset-based readers for the EA SPORTS F1 25 / F1 26 UDP packets we consume. All values are
+/// Offset-based readers for the EA SPORTS F1 25 UDP packets we consume. All values are
 /// little-endian and packed with no padding, so every field is read by absolute byte offset from
 /// the spec rather than through a struct — that keeps the parser tolerant of packet growth (new
 /// fields are appended) and lets us assert on packet size per format instead of silently misreading.

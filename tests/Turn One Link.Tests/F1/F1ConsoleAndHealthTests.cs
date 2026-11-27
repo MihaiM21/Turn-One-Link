@@ -38,6 +38,7 @@ public class F1ConsoleAndHealthTests
     [Theory]
     [InlineData("F1 25", "UDP Telemetry On")]
     [InlineData("F1 24", "aren't supported")]
+    [InlineData("F1 24", "reads F1 25, including the 2026 Season Pack")]
     [InlineData("iRacing", "in the car")]
     [InlineData("RaceRoom", "isn't supported")]
     public void Each_Game_Gets_Its_Own_Hint(string game, string expected) =>
