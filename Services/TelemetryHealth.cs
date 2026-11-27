@@ -23,9 +23,9 @@ public static class TelemetryHealth
                    $"UDP Broadcast Off, IP address {pcAddress}, port {f1Port}, format 2025.";
 
         if (gameName is "F1 24" or "F1 23")
-            return "F1 24 and older aren't supported yet — Turn One Link reads F1 25 and F1 26.";
+            return "F1 24 and older aren't supported yet — Turn One Link reads F1 25, including the 2026 Season Pack.";
 
-        if (gameName is "F1 25" or "F1 26")
+        if (gameName == "F1 25")
             return $"No F1 data yet. In F1: Settings → Telemetry → UDP Telemetry On, port {f1Port}, format 2025.";
 
         if (gameName == "iRacing")

@@ -212,5 +212,7 @@ public class F1UdpTelemetrySourceTests
         infos.Should().HaveCount(2);
         src.SourceName.Should().Be("f1_26");
         infos[1].Source.Should().Be("f1_26");
+        infos[0].CarName.Should().Be("F1 25 car");
+        infos[1].CarName.Should().Be("F1 2026 car");
     }
 }

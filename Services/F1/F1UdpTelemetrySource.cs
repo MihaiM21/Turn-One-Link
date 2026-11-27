@@ -9,7 +9,7 @@ using static Turn_One_Link.Services.F1.F1Packets;
 namespace Turn_One_Link.Services.F1;
 
 /// <summary>
-/// EA SPORTS F1 25 / F1 26 telemetry over UDP (game setting: UDP Telemetry = On, format 2025/2026,
+/// EA SPORTS F1 25 (incl. the 2026 Season Pack) telemetry over UDP (game setting: UDP Telemetry = On, format 2025/2026,
 /// port 20777, rate 20–60 Hz). Listens on <c>F1_UDP_PORT</c>, parses the player car out of the
 /// Motion / LapData / CarTelemetry / CarStatus / MotionEx / Session packets and merges them into
 /// protocol-v2 ticks. Lap completion comes from <c>currentLapNum</c> changes, with timing taken from the
@@ -307,6 +307,8 @@ public sealed class F1UdpTelemetrySource : ITelemetrySource
         if (identity == _lastIdentity) return;
         _lastIdentity = identity;
 
+        var carName = SourceName == "f1_26" ? "F1 2026 car" : "F1 25 car";
+
         SessionInfoUpdated?.Invoke(new T1SessionInfo(
             Source: SourceName,
             SimVersion: null,
@@ -316,7 +318,7 @@ public sealed class F1UdpTelemetrySource : ITelemetrySource
             SectorCount: 3,
             SectorBoundariesM: null,
             CarId: $"f1_team_{_carTeamId}",
-            CarName: SourceName == "f1_26" ? "F1 26 car" : "F1 25 car",
+            CarName: carName,
             CarClass: s.Formula == 0 ? "F1" : $"formula_{s.Formula}",
             SessionType: sessionType,
             SessionTypeRaw: raw,
@@ -324,7 +326,7 @@ public sealed class F1UdpTelemetrySource : ITelemetrySource
             TickRateHz: TelemetryEnv.StreamHz));
 
         StaticInfoUpdated?.Invoke(new T1StaticFrame(
-            Track: trackName, CarModel: SourceName == "f1_26" ? "F1 26 car" : "F1 25 car",
+            Track: trackName, CarModel: carName,
             PlayerName: "Player", PlayerSurname: "", MaxRpm: _status?.MaxRpm ?? 13000, MaxFuel: _status?.FuelCapacity ?? 110f));
     }
 

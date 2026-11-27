@@ -420,7 +420,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Margin="0,0,12,0" VerticalAlignment="Center">
                                     <TextBlock Text="F1 on PlayStation / Xbox" Style="{StaticResource SettingTitle}"/>
-                                    <TextBlock Text="Receive F1 25/26 telemetry from a console on your network" Style="{StaticResource SettingDesc}"/>
+                                    <TextBlock Text="Receive F1 25 telemetry, including the 2026 Season Pack, from a console on your network" Style="{StaticResource SettingDesc}"/>
                                 </StackPanel>
                                 <CheckBox x:Name="F1ConsoleToggle" Grid.Column="1" Style="{StaticResource ToggleSwitch}"
                                           VerticalAlignment="Center" AutomationProperties.Name="F1 on PlayStation or Xbox"
